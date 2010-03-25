@@ -1,12 +1,12 @@
-mobile/blackberry/bin
-mobile/blackberry/build
-mobile/blackberry/release
+mobile/blackberry/bin/
+mobile/blackberry/build/
+mobile/blackberry/release/
 mobile/blackberry/local.properties
 mobile/blackberry/LogFile.txt
-mobile/blackberry/.settings
+mobile/blackberry/.settings/
+mobile/blackberry/.tmp/
 mobile/blackberry/.project
 mobile/blackberry/.classpath
-mobile/blackberry/.tmp
 mobile/blackberry/com_google_authenticator.cod
 mobile/blackberry/com_google_authenticator.csl
 mobile/blackberry/com_google_authenticator.cso
