@@ -1,0 +1,38 @@
+All configuration data and state is kept in ~/.google_authenticator
+The file is all ASCII, but is kept in a very simple-to-parse and rigid
+file format.
+
+The file size is currently limited to 1kB. This should be generous even
+when using a very large list of scratch codes.
+
+The first line is the base32 encoded secret. It uses characters in the range
+A..Z2..7.
+
+The following lines are optional. They all start with a double quote character,
+followed by a space character. Followed by an option name. Option names are
+all upper-case and must include an underscore. This ensures that they cannot
+accidentally appear anywhere else in the file.
+
+Options can be followed by option-specific parameters.
+
+Currently, the following options are recognized:
+
+  DISALLOW_REUSE
+    if present, this signals the a time-based token can only ever be used
+    exactly once. Any attempt to log in using the same token will be denied.
+    This means, that users can typically no log in faster than once every
+    ~30 seconds.
+
+    The option is followed by a space-separated list of time stamps that
+    have previously been used for login attempts.
+
+  TOTP_AUTH
+    the presence of this option indicates that the secret can be used to
+    authenticate users with a time-based token.
+
+Any all-numeric sequence of eight-digit numbers are one-time randomly
+generated one-time tokens. The user can enter any arbitrary one-time code
+to log into his account. The code will then be removed from the file.
+
+
+  
