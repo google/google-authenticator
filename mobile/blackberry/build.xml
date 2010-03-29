@@ -50,40 +50,31 @@ public interface Build {
 		<copy file="${res.dir}/drawable-hdpi/${icon}" todir="${build.dir}/BlackBerry47" />
 		<rapc nowarn="true" generatesourcelist="true" output="com_google_authenticator" destdir="${build.dir}/BlackBerry42" jdehome="${jdehome42}">
 			<jdp file="application.properties">
-				<entry file="entry/main.properties" />
 				<entry file="entry/startup.properties" />
 			</jdp>
 			<src refid="src.path" />
 		</rapc>
 		<rapc nowarn="true" generatesourcelist="true" output="com_google_authenticator" destdir="${build.dir}/BlackBerry43" jdehome="${jdehome43}">
 			<jdp file="application.properties">
-				<entry file="entry/main.properties" />
 				<entry file="entry/startup.properties" />
-				<entry file="entry/uri.properties" />
 			</jdp>
 			<src refid="src.path" />
 		</rapc>
 		<rapc nowarn="true" generatesourcelist="true" output="com_google_authenticator" destdir="${build.dir}/BlackBerry45" jdehome="${jdehome45}">
 			<jdp file="application.properties">
-				<entry file="entry/main.properties" />
 				<entry file="entry/startup.properties" />
-				<entry file="entry/uri.properties" />
 			</jdp>
 			<src refid="src.path" />
 		</rapc>
 		<rapc nowarn="true" generatesourcelist="true" output="com_google_authenticator" destdir="${build.dir}/BlackBerry46" jdehome="${jdehome46}">
 			<jdp file="application.properties">
-				<entry file="entry/main.properties" />
 				<entry file="entry/startup.properties" />
-				<entry file="entry/uri.properties" />
 			</jdp>
 			<src refid="src.path" />
 		</rapc>
 		<rapc nowarn="true" generatesourcelist="true" output="com_google_authenticator" destdir="${build.dir}/BlackBerry47" jdehome="${jdehome47}">
 			<jdp file="application.properties">
-				<entry file="entry/main.properties" />
 				<entry file="entry/startup.properties" />
-				<entry file="entry/uri.properties" />
 			</jdp>
 			<src refid="src.path" />
 		</rapc>
