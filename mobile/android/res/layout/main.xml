@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:orientation="vertical" android:layout_width="wrap_content"
+  android:layout_height="wrap_content" android:layout_marginLeft="5dip">
+
+  <TextView android:id="@+id/enter_pin" android:layout_width="fill_parent"
+    android:layout_height="wrap_content" android:layout_marginLeft="10dip"
+    android:layout_marginTop="10dip" android:text="@string/enter_pin"
+    style="?android:attr/textAppearanceMedium" android:visibility="gone" />
+
+  <!-- Unused view to prevent user_list from starting with focus. -->
+  <View android:focusable="true" android:focusableInTouchMode="true"
+    android:layout_width="0px" android:layout_height="0px"/>
+
+  <ListView android:id="@+id/user_list"
+    android:layout_width="fill_parent" android:layout_height="wrap_content" />
+
+  <View android:layout_width="wrap_content" android:layout_height="0dip"
+    android:layout_weight="1" android:visibility="invisible" />
+
+  <TextView android:id="@+id/status_text" android:layout_width="fill_parent"
+    android:layout_height="wrap_content" android:layout_marginLeft="10dip"
+    android:hint="@string/status_hint" android:gravity="bottom"
+    style="?android:attr/textAppearanceSmall" />
+
+  <TextView android:id="@+id/version_text" android:layout_width="fill_parent"
+    android:layout_height="wrap_content" android:layout_marginLeft="10dip"
+    style="?android:attr/textAppearanceSmall" android:gravity="right" />
+
+</LinearLayout>
