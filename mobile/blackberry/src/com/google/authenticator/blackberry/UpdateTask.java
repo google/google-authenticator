@@ -155,7 +155,7 @@ public class UpdateTask extends Thread {
           } else if (responseCode != HttpConnection.HTTP_OK) {
             throw new IOException("Unexpected response code: " + responseCode);
           }
-
+          s = c.openInputStream();
           String enc = getEncoding(c);
           Reader reader = new InputStreamReader(s, enc);
           final String version = getMIDletVersion(reader);
