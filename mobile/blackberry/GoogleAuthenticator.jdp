@@ -31,7 +31,6 @@ src\com\google\authenticator\blackberry\Build.java
 src\com\google\authenticator\blackberry\CheckCodeScreen.java
 src\com\google\authenticator\blackberry\EnterKeyScreen.java
 src\com\google\authenticator\blackberry\FieldUtils.java
-src\com\google\authenticator\blackberry\Html.java
 src\com\google\authenticator\blackberry\img\ic_lock_lock.png
 src\com\google\authenticator\blackberry\img\icon.png
 src\com\google\authenticator\blackberry\PasscodeGenerator.java

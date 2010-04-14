@@ -271,8 +271,7 @@ public class AuthenticatorScreen extends MainScreen implements UpdateCallback,
   private void tellUserToGetSecretKey() {
     // TODO: fill this in with code to send our phone number to the server
     String notInitialized = sResources.getString(NOT_INITIALIZED);
-    String styledNotInitalized = Html.fromHtml(notInitialized);
-    mEnterPinTextView.setText(styledNotInitalized);
+    mEnterPinTextView.setText(notInitialized);
     FieldUtils.setVisible(mEnterPinTextView, true);
     FieldUtils.setVisible(mUserList, false);
   }
