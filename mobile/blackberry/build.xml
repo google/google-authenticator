@@ -21,7 +21,7 @@
 	<target name="clean">
 		<delete failonerror="false" includeEmptyDirs="true">
 			<fileset dir="${build.dir}" />
-			<fileset dir="${release.dir}/${version}" />
+			<fileset dir="${release.dir}/google-authenticator-${version}" />
 		</delete>
 	</target>
 
@@ -83,20 +83,20 @@ public interface Build {
 		</sigtool>
 
 		<mkdir dir="${release.dir}" />
-		<mkdir dir="${release.dir}/${version}" />
-		<mkdir dir="${release.dir}/${version}/alx" />
-		<mkdir dir="${release.dir}/${version}/ota" />
-		<mkdir dir="${release.dir}/${version}/alx/BlackBerry42" />
-		<mkdir dir="${release.dir}/${version}/alx/BlackBerry43" />
-		<mkdir dir="${release.dir}/${version}/alx/BlackBerry45" />
-		<mkdir dir="${release.dir}/${version}/alx/BlackBerry46" />
-		<mkdir dir="${release.dir}/${version}/alx/BlackBerry47" />
-		<mkdir dir="${release.dir}/${version}/ota/BlackBerry42" />
-		<mkdir dir="${release.dir}/${version}/ota/BlackBerry43" />
-		<mkdir dir="${release.dir}/${version}/ota/BlackBerry45" />
-		<mkdir dir="${release.dir}/${version}/ota/BlackBerry46" />
-		<mkdir dir="${release.dir}/${version}/ota/BlackBerry47" />
-		<alx destdir="${release.dir}/${version}/alx" filename="GoogleAuthenticator.alx">
+		<mkdir dir="${release.dir}/google-authenticator-${version}" />
+		<mkdir dir="${release.dir}/google-authenticator-${version}/alx" />
+		<mkdir dir="${release.dir}/google-authenticator-${version}/ota" />
+		<mkdir dir="${release.dir}/google-authenticator-${version}/alx/BlackBerry42" />
+		<mkdir dir="${release.dir}/google-authenticator-${version}/alx/BlackBerry43" />
+		<mkdir dir="${release.dir}/google-authenticator-${version}/alx/BlackBerry45" />
+		<mkdir dir="${release.dir}/google-authenticator-${version}/alx/BlackBerry46" />
+		<mkdir dir="${release.dir}/google-authenticator-${version}/alx/BlackBerry47" />
+		<mkdir dir="${release.dir}/google-authenticator-${version}/ota/BlackBerry42" />
+		<mkdir dir="${release.dir}/google-authenticator-${version}/ota/BlackBerry43" />
+		<mkdir dir="${release.dir}/google-authenticator-${version}/ota/BlackBerry45" />
+		<mkdir dir="${release.dir}/google-authenticator-${version}/ota/BlackBerry46" />
+		<mkdir dir="${release.dir}/google-authenticator-${version}/ota/BlackBerry47" />
+		<alx destdir="${release.dir}/google-authenticator-${version}/alx" filename="GoogleAuthenticator.alx">
 			<application file="application.properties">
 				<codset greaterthanequal="4.2" lessthan="4.3" dir="BlackBerry42">
 					<fileset dir="${build.dir}/BlackBerry42" includes="*.cod" />
@@ -115,27 +115,29 @@ public interface Build {
 				</codset>
 			</application>
 		</alx>
-		<jadtool input="${build.dir}/BlackBerry42/com_google_authenticator.jad" destdir="${release.dir}/${version}/ota/BlackBerry42">
+		<jadtool input="${build.dir}/BlackBerry42/com_google_authenticator.jad" destdir="${release.dir}/google-authenticator-${version}/ota/BlackBerry42">
 			<fileset dir="${build.dir}/BlackBerry42" includes="*.cod" />
 			<override key="MIDlet-Name" value="${title}" />
 		</jadtool>
-		<jadtool input="${build.dir}/BlackBerry43/com_google_authenticator.jad" destdir="${release.dir}/${version}/ota/BlackBerry43">
+		<jadtool input="${build.dir}/BlackBerry43/com_google_authenticator.jad" destdir="${release.dir}/google-authenticator-${version}/ota/BlackBerry43">
 			<fileset dir="${build.dir}/BlackBerry43" includes="*.cod" />
 			<override key="MIDlet-Name" value="${title}" />
 		</jadtool>
-		<jadtool input="${build.dir}/BlackBerry45/com_google_authenticator.jad" destdir="${release.dir}/${version}/ota/BlackBerry45">
+		<jadtool input="${build.dir}/BlackBerry45/com_google_authenticator.jad" destdir="${release.dir}/google-authenticator-${version}/ota/BlackBerry45">
 			<fileset dir="${build.dir}/BlackBerry45" includes="*.cod" />
 			<override key="MIDlet-Name" value="${title}" />
 		</jadtool>
-		<jadtool input="${build.dir}/BlackBerry46/com_google_authenticator.jad" destdir="${release.dir}/${version}/ota/BlackBerry46">
+		<jadtool input="${build.dir}/BlackBerry46/com_google_authenticator.jad" destdir="${release.dir}/google-authenticator-${version}/ota/BlackBerry46">
 			<fileset dir="${build.dir}/BlackBerry46" includes="*.cod" />
 			<override key="MIDlet-Name" value="${title}" />
 		</jadtool>
-		<jadtool input="${build.dir}/BlackBerry47/com_google_authenticator.jad" destdir="${release.dir}/${version}/ota/BlackBerry47">
+		<jadtool input="${build.dir}/BlackBerry47/com_google_authenticator.jad" destdir="${release.dir}/google-authenticator-${version}/ota/BlackBerry47">
 			<fileset dir="${build.dir}/BlackBerry47" includes="*.cod" />
 			<override key="MIDlet-Name" value="${title}" />
 		</jadtool>
-		<echo file="${release.dir}/${version}/app.yaml"># Google App Engine Python Application Configuration
+		<zip destfile="${release.dir}/google-authenticator-${version}.zip" basedir="${release.dir}/google-authenticator-${version}" />
+		<move file="${release.dir}/google-authenticator-${version}.zip" todir="${release.dir}/google-authenticator-${version}" />
+		<echo file="${release.dir}/google-authenticator-${version}/app.yaml"># Google App Engine Python Application Configuration
 application: ${appengine.application}
 version:  ${appengine.version}
 runtime: python
@@ -152,9 +154,13 @@ handlers:
   upload: ota/(.*)\.cod
   mime_type: application/vnd.rim.cod
 
+- url: /google-authenticator\.zip
+  static_files: google-authenticator-${version}.zip
+  upload: .*\.zip
+
 - url: /
   script: main.py</echo>
-		<echo file="${release.dir}/${version}/main.py">#!/usr/bin/env python
+		<echo file="${release.dir}/google-authenticator-${version}/main.py">#!/usr/bin/env python
 import os
 # Example: BlackBerry8700/4.1.0 Profile/MIDP-2.0 Configuration/CLDC-1.1
 ua = os.environ.get('HTTP_USER_AGENT', 'unknown')
@@ -188,6 +194,5 @@ else:
   print 'Content-Type: text/plain'
   print
   print 'Unsupported Platform:', ua</echo>
-		<zip destfile="${release.dir}/GoogleAuthenticator-${version}.zip" basedir="${release.dir}/${version}" />
 	</target>
 </project>
