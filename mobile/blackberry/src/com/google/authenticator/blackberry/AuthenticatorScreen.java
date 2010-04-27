@@ -48,6 +48,10 @@ public class AuthenticatorScreen extends MainScreen implements UpdateCallback,
       BUNDLE_ID, BUNDLE_NAME);
 
   private static final int VIBRATE_DURATION = 200;
+  
+  private static final String TERMS_URL = "http://www.google.com/accounts/TOS";
+  
+  private static final String PRIVACY_URL = "http://www.google.com/mobile/privacy.html";
 
   /**
    * Computes the one-time PIN given the secret key.
@@ -345,6 +349,18 @@ public class AuthenticatorScreen extends MainScreen implements UpdateCallback,
         refreshUserList();
       }
     };
+    MenuItem termsItem = new MenuItem(sResources, TERMS_MENU_ITEM, 0, 0) {
+      public void run() {
+        BrowserSession session = Browser.getDefaultSession();
+        session.displayPage(TERMS_URL);
+      }
+    };
+    MenuItem privacyItem = new MenuItem(sResources, PRIVACY_MENU_ITEM, 0, 0) {
+      public void run() {
+        BrowserSession session = Browser.getDefaultSession();
+        session.displayPage(PRIVACY_URL);
+      }
+    };
     menu.add(enterKeyItem);
     menu.add(refreshItem);
     if (mUpdateAvailable) {
@@ -357,6 +373,8 @@ public class AuthenticatorScreen extends MainScreen implements UpdateCallback,
       };
       menu.add(updateItem);
     }
+    menu.add(termsItem);
+    menu.add(privacyItem);
   }
 
   /**
