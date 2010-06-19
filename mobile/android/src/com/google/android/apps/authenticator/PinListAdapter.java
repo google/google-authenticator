@@ -29,8 +29,8 @@ class PinInfo {
 public class PinListAdapter extends ArrayAdapter<PinInfo>  {
   private AuthenticatorActivity mContext;
   
-  public PinListAdapter(Context context, PinInfo[] items) {
-    super(context, R.layout.user_row, items);
+  public PinListAdapter(Context context, int userRowId, PinInfo[] items) {
+    super(context, userRowId, items);
     mContext = (AuthenticatorActivity) context;
   }
   
@@ -43,7 +43,12 @@ public class PinListAdapter extends ArrayAdapter<PinInfo>  {
    LayoutInflater inflater = mContext.getLayoutInflater();
    PinInfo currentPin = getItem(position);
 
-   View row = inflater.inflate(R.layout.user_row, null);
+   View row;
+   if (AuthenticatorActivity.mAccessibilityAvailable) {
+     row = inflater.inflate(R.layout.user_row, null);
+   } else {
+     row = inflater.inflate(R.layout.user_row_legacy, null);
+   }
    TextView pinView = (TextView) row.findViewById(R.id.pin_value);
    TextView userView = (TextView) row.findViewById(R.id.current_user);
    Button buttonView = (Button) row.findViewById(R.id.next_otp);

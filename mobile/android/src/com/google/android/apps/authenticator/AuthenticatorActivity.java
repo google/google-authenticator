@@ -2,6 +2,9 @@
 
 package com.google.android.apps.authenticator;
 
+import com.google.android.apps.authenticator.AccountDb.OtpType;
+import com.google.android.apps.authenticator.Base32String.DecodingException;
+
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
@@ -19,23 +22,19 @@ import android.text.method.LinkMovementMethod;
 import android.util.Log;
 import android.view.ContextMenu;
 import android.view.ContextMenu.ContextMenuInfo;
-import android.view.accessibility.AccessibilityEvent;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.AdapterView.AdapterContextMenuInfo;
 import android.widget.AdapterView.OnItemClickListener;
-import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
-
-import com.google.android.apps.authenticator.AccountDb.OtpType;
-import com.google.android.apps.authenticator.Base32String.DecodingException;
 
 import java.security.GeneralSecurityException;
 
@@ -49,16 +48,28 @@ import javax.crypto.spec.SecretKeySpec;
  */
 public class AuthenticatorActivity extends Activity {
 
+  private static AuthenticatorActivity SINGLETON; // used only by saveSecret 
+  
   /** The tag for log messages */
   static final String TAG = "Authenticator";
   private static final long VIBRATE_DURATION = 200L;
 
-  private TextView mVersionText;
   private TextView mStatusText;
   private TextView mEnterPinTextView;
   private ListView mUserList;
   private PinListAdapter mUserAdapter;
   private PinInfo[] mUsers = {};
+  public static boolean mAccessibilityAvailable;
+  private static String mVersion;
+  
+  static {
+    try {
+      WrapAccessibilityEvent.checkAvailable();
+      mAccessibilityAvailable = true;
+    } catch (VerifyError e) {
+      mAccessibilityAvailable = false;
+    }
+  }
 
   static final String DEFAULT_USER = "Default account";
   private static final String OTP_SCHEME = "otpauth";
@@ -76,11 +87,17 @@ public class AuthenticatorActivity extends Activity {
     "market://search?q=pname:com.google.zxing.client.android";
   private static final String ZXING_DIRECT = 
     "https://zxing.googlecode.com/files/BarcodeScanner3.1.apk";
-
+  private static final String OPEN_SOURCE_URI =
+    "http://code.google.com/p/google-authenticator/";
+  private static final String TERMS_URI = "http://www.google.com/accounts/TOS";
+  private static final String PRIVACY_URI =
+    "http://www.google.com/mobile/privacy.html";
+  
   /** Called when the activity is first created. */
   @Override
   public void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
+    SINGLETON = this;
     AccountDb.initialize(this);
     setContentView(R.layout.main);
 
@@ -95,8 +112,11 @@ public class AuthenticatorActivity extends Activity {
     mEnterPinTextView = (TextView) findViewById(R.id.enter_pin);
     mEnterPinTextView.setVisibility(View.GONE);
     mUserList.setVisibility(View.GONE);
-    mVersionText = (TextView) findViewById(R.id.version_text);
-    mUserAdapter = new PinListAdapter(this, mUsers);
+    if (mAccessibilityAvailable) {
+      mUserAdapter = new PinListAdapter(this, R.layout.user_row, mUsers);
+    } else {
+      mUserAdapter = new PinListAdapter(this, R.layout.user_row_legacy, mUsers);
+    }
     mUserList.setAdapter(mUserAdapter);
     mUserList.setOnItemClickListener(new OnItemClickListener(){
         @Override
@@ -106,18 +126,21 @@ public class AuthenticatorActivity extends Activity {
             if ((clickListener != null) && nextOtp.isEnabled()){
                 clickListener.onClick(row);
             }
-            row.sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_FOCUSED);
-        }    
+            if (mAccessibilityAvailable) {
+              WrapAccessibilityEvent.sendEvent(mUserList, 
+                  WrapAccessibilityEvent.TYPE_VIEW_SELECTED);
+            }
+        }
     });
-    
+
     try {
-      mVersionText.setText(
-          getPackageManager().getPackageInfo(getPackageName(), 0).versionName);
+      mVersion = 
+        getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
     } catch (NameNotFoundException e) {
-      mVersionText.setText("Unknown");
+      mVersion = "Unknown";
     }
   }
-  
+
   @Override
   public Object onRetainNonConfigurationInstance() {
     return mUsers;  // save state of users and currently displayed PINs
@@ -142,41 +165,58 @@ public class AuthenticatorActivity extends Activity {
 
   /** Display list of user emails and updated pin codes. */
   protected void refreshUserList() {
-    
+    refreshUserList(false);
+  }
+
+  /**
+   * Display list of user emails and updated pin codes. 
+   * 
+   * @param isAccountModified if true, force full refresh
+   */
+  protected void refreshUserList(boolean isAccountModified) {
+
     // If the users have changed, let the (potentially running) widget know it needs to be
     // updated
     Intent intent = new Intent(AuthenticatorWidget.WidgetReceiver.APPWIDGET_UPDATE);
     intent.setClass(this, AuthenticatorWidget.WidgetReceiver.class);
     sendBroadcast(intent);
-    
+
     Cursor cursor = AccountDb.getNames();
-    int index = cursor.getColumnIndex(AccountDb.EMAIL_COLUMN);
-    if (cursor.requery() && cursor.getCount() > 0) {
-      if (mUsers.length != cursor.getCount()) {
-        mUsers = new PinInfo[cursor.getCount()];
-      }
-      for (int i = 0; i < cursor.getCount(); i++) {
-        cursor.moveToPosition(i);
-        String user = cursor.getString(index);
-        Log.i(TAG, "onResume user: " + user);
-        computeAndDisplayPin(user, i, false);
-      }
+    try {
+      if (!AccountDb.cursorIsEmpty(cursor)) {
+        int index = cursor.getColumnIndex(AccountDb.EMAIL_COLUMN);
+        if (isAccountModified || mUsers.length != cursor.getCount()) {
+          mUsers = new PinInfo[cursor.getCount()];
+        }
+        for (int i = 0; i < cursor.getCount(); i++) {
+          cursor.moveToPosition(i);
+          String user = cursor.getString(index);
+          Log.i(TAG, "onResume user: " + user);
+          computeAndDisplayPin(user, i, false);
+        }
 
-      mUserAdapter = new PinListAdapter(this, mUsers);
-      mUserList.setAdapter(mUserAdapter); // force refresh of display
+        if (mAccessibilityAvailable) {
+          mUserAdapter = new PinListAdapter(this, R.layout.user_row, mUsers);
+        } else {
+          mUserAdapter = new PinListAdapter(this, R.layout.user_row_legacy, mUsers);
+        }
+        mUserList.setAdapter(mUserAdapter); // force refresh of display
 
-      if (mUserList.getVisibility() != View.VISIBLE) {
-        mEnterPinTextView.setText(R.string.enter_pin);
-        mEnterPinTextView.setVisibility(View.VISIBLE);
-        mUserList.setVisibility(View.VISIBLE);
-        registerForContextMenu(mUserList);
+        if (mUserList.getVisibility() != View.VISIBLE) {
+          mEnterPinTextView.setText(R.string.enter_pin);
+          mEnterPinTextView.setVisibility(View.VISIBLE);
+          mUserList.setVisibility(View.VISIBLE);
+          registerForContextMenu(mUserList);
+        }
+
+      } else {
+        // If the user started up this app but there is no secret key yet,
+        // then tell the user to visit a web page to get the secret key.
+        mUsers = new PinInfo[0]; // clear any existing user PIN state 
+        tellUserToGetSecretKey();
       }
-
-    } else {
-      // If the user started up this app but there is no secret key yet,
-      // then tell the user to visit a web page to get the secret key.
-      mUsers = new PinInfo[0]; // clear any existing user PIN state 
-      tellUserToGetSecretKey();
+    } finally {
+      AccountDb.tryCloseCursor(cursor);
     }
   }
 
@@ -290,7 +330,7 @@ public class AuthenticatorActivity extends Activity {
     String user = DEFAULT_USER;
     String secret;
     Integer type = AccountDb.OtpType.TOTP.value;
-    Integer counter = 0; // only interesting for HOTP
+    Integer counter = AccountDb.DEFAULT_COUNTER; // only interesting for HOTP
     if (OTP_SCHEME.equals(scheme)) {
       if (authority != null && authority.equals(TOTP)) {
         type = AccountDb.OtpType.TOTP.value;
@@ -335,7 +375,7 @@ public class AuthenticatorActivity extends Activity {
     if (!secret.equals(getSecret(user)) ||
         counter != AccountDb.getCounter(user) ||
         type != AccountDb.getType(user).value) {
-      saveSecret(this, user, secret, null, type);
+      saveSecret(this, user, secret, null, type, counter);
       mStatusText.setText(R.string.secret_saved);
     }
   }
@@ -346,19 +386,22 @@ public class AuthenticatorActivity extends Activity {
    * @param user the user email address. When editing, the new user email.
    * @param secret the secret key
    * @param originalUser If editing, the original user email, otherwise null.
+   * @param type hotp vs totp
+   * @param counter only important for the hotp type
    */
   static void saveSecret(Context context, String user, String secret, 
-                         String originalUser, Integer type) {
+                         String originalUser, Integer type, Integer counter) {
     // TODO(adhintz) change type to AccountDb.OtpType instead of Integer
     if (originalUser == null) {  // new user account
       originalUser = user;
     }
     String oldSecret = getSecret(user);
     if (secret != null) {
-      AccountDb.update(user, secret, originalUser, type);
+      AccountDb.update(user, secret, originalUser, type, counter);
       ((Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE))
         .vibrate(VIBRATE_DURATION);
     }
+    SINGLETON.refreshUserList(true);
   }
 
   /** Converts user list ordinal id to user email */
@@ -441,8 +484,8 @@ public class AuthenticatorActivity extends Activity {
             Toast.makeText(context, R.string.error_exists, 15).show();
           } else {
             saveSecret(context, newName,
-                getSecret(user), user, AccountDb.getType(user).value);
-            refreshUserList();
+                getSecret(user), user, AccountDb.getType(user).value,
+                AccountDb.getCounter(user));
           }
         }
       }
@@ -486,6 +529,26 @@ public class AuthenticatorActivity extends Activity {
         return true;
       case R.id.refresh:
         refreshUserList();
+        return true;
+      case R.id.about:
+        new AlertDialog.Builder(this)
+        .setTitle(R.string.about_menu_item)
+        .setMessage(Html.fromHtml(
+            String.format(getString(R.string.about_text), mVersion)))
+        .setPositiveButton(R.string.ok, null)
+        .show();
+        return true;
+      case R.id.opensource:
+        intent = new Intent(Intent.ACTION_VIEW, Uri.parse(OPEN_SOURCE_URI));
+        startActivity(intent);
+        return true;
+      case R.id.terms:
+        intent = new Intent(Intent.ACTION_VIEW, Uri.parse(TERMS_URI));
+        startActivity(intent);
+        return true;
+      case R.id.privacy:
+        intent = new Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_URI));
+        startActivity(intent);
         return true;
     }
 

@@ -28,5 +28,27 @@
             android:id="@+id/refresh"
             android:icon="@android:drawable/ic_menu_rotate"
             android:title="@string/refresh_menu_item" />
+        <item
+            android:id="@+id/more"
+            android:icon="@android:drawable/ic_menu_more"
+            android:title="@string/more_menu_item">
+
+          <menu>
+            <item
+                android:id="@+id/about"
+                android:title="@string/about_menu_item" />
+            <item
+                android:id="@+id/opensource"
+                android:title="@string/opensource_menu_item" />
+            <item
+                android:id="@+id/terms"
+                android:title="@string/terms_menu_item" />
+            <item
+                android:id="@+id/privacy"
+                android:title="@string/privacy_menu_item" />
+
+          </menu>
+
+        </item>
     </group>
 </menu>

@@ -2,8 +2,9 @@
 
 package com.google.android.apps.authenticator;
 
+import com.google.android.apps.authenticator.Base32String.DecodingException;
+
 import android.app.Activity;
-import android.content.pm.PackageManager.NameNotFoundException;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.text.Editable;
@@ -16,8 +17,6 @@ import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.TextView;
 
-import com.google.android.apps.authenticator.Base32String.DecodingException;
-
 import java.security.GeneralSecurityException;
 
 /**
@@ -29,7 +28,6 @@ public class EnterKeyActivity extends Activity implements OnClickListener,
     TextWatcher {
   private static final int MIN_KEY_BYTES = 10;
   private TextView mStatusText;
-  private TextView mVersionText;
   private EditText mKeyEntryField;
   private EditText mAccountName;
   private Spinner mType;
@@ -51,7 +49,6 @@ public class EnterKeyActivity extends Activity implements OnClickListener,
     mSubmitButton = (Button) findViewById(R.id.submit_button);
     mClearButton = (Button) findViewById(R.id.clear_button);
     mCancelButton = (Button) findViewById(R.id.cancel_button);
-    mVersionText = (TextView) findViewById(R.id.version_text);
     mAccountName = (EditText) findViewById(R.id.account_name);
     mType = (Spinner) findViewById(R.id.type_choice);
     
@@ -60,14 +57,6 @@ public class EnterKeyActivity extends Activity implements OnClickListener,
     types.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
     mType.setAdapter(types);
 
-    try {
-      // Set the version name
-      mVersionText.setText(
-          getPackageManager().getPackageInfo(getPackageName(), 0).versionName);
-    } catch (NameNotFoundException e) {
-      mVersionText.setText("Unknown");
-    }
-    
     // Set listeners
     mSubmitButton.setOnClickListener(this);
     mClearButton.setOnClickListener(this);
@@ -121,7 +110,8 @@ public class EnterKeyActivity extends Activity implements OnClickListener,
             mAccountName.getText().toString(), 
             getEnteredKey(),
             null,
-            mType.getSelectedItemPosition());
+            mType.getSelectedItemPosition(),
+            AccountDb.DEFAULT_COUNTER);
         finish();
       }
     } else if (view == mClearButton) {

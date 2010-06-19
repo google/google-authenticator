@@ -23,8 +23,4 @@
     android:hint="@string/status_hint" android:gravity="bottom"
     style="?android:attr/textAppearanceSmall" />
 
-  <TextView android:id="@+id/version_text" android:layout_width="fill_parent"
-    android:layout_height="wrap_content" android:layout_marginLeft="10dip"
-    style="?android:attr/textAppearanceSmall" android:gravity="right" />
-
 </LinearLayout>

@@ -14,6 +14,7 @@ import android.database.sqlite.SQLiteDatabase;
  * @author sweis@google.com (Steve Weis)
  */
 public class AccountDb {
+  public static final Integer DEFAULT_COUNTER = 0;  // for hotp type
   private static final String TABLE_NAME = "accounts";
   static final String ID_COLUMN = "_id";
   static final String EMAIL_COLUMN = "email";
@@ -63,9 +64,9 @@ public class AccountDb {
     String createTableIfNeeded = String.format(
         "CREATE TABLE IF NOT EXISTS %s" +
         " (%s INTEGER PRIMARY KEY, %s TEXT NOT NULL, %s TEXT NOT NULL, " +
-        " %s INTEGER DEFAULT 0, %s INTEGER)",
+        " %s INTEGER DEFAULT %s, %s INTEGER)",
         TABLE_NAME, ID_COLUMN, EMAIL_COLUMN, SECRET_COLUMN, COUNTER_COLUMN, 
-        TYPE_COLUMN);
+        DEFAULT_COUNTER, TYPE_COLUMN);
     DATABASE.execSQL(createTableIfNeeded);
   }
   
@@ -73,33 +74,43 @@ public class AccountDb {
     return DATABASE.query(TABLE_NAME, null, null, null, null, null, null, null);
   }
   
-  static boolean nameExists(String email) {
-    Cursor cursor = DATABASE.query(TABLE_NAME, null, EMAIL_COLUMN + "= ?",
+  static Cursor getAccount(String email) {
+    return DATABASE.query(TABLE_NAME, null, EMAIL_COLUMN + "= ?",
         new String[] {email}, null, null, null);
-    if (cursor != null && cursor.getCount() > 0) {
-      return true;
-    } else {
-      return false;
+  }
+  
+  static boolean nameExists(String email) {
+    Cursor cursor = getAccount(email);
+    try {
+      return !cursorIsEmpty(cursor);
+    } finally {
+      tryCloseCursor(cursor);
     }
   }
   
   static String getSecret(String email) {
-    Cursor cursor = DATABASE.query(TABLE_NAME, null, EMAIL_COLUMN + "= ?",
-        new String[] {email}, null, null, null);
-    if (cursor != null && cursor.getCount() > 0) {
-      cursor.moveToFirst();
-      return cursor.getString(cursor.getColumnIndex(SECRET_COLUMN));
-    } 
+    Cursor cursor = getAccount(email);
+    try {
+      if (!cursorIsEmpty(cursor)) {
+        cursor.moveToFirst();
+        return cursor.getString(cursor.getColumnIndex(SECRET_COLUMN));
+      }
+    } finally {
+      tryCloseCursor(cursor);
+    }
     return null;   
   }
 
   static Integer getCounter(String email) {
-    Cursor cursor = DATABASE.query(TABLE_NAME, null, EMAIL_COLUMN + "= ?", 
-        new String[] {email}, null, null, null);
-    if (cursor != null && cursor.getCount() > 0) {
-      cursor.moveToFirst();
-      return cursor.getInt(cursor.getColumnIndex(COUNTER_COLUMN));
-    } 
+    Cursor cursor = getAccount(email);
+    try {
+      if (!cursorIsEmpty(cursor)) {
+        cursor.moveToFirst();
+        return cursor.getInt(cursor.getColumnIndex(COUNTER_COLUMN));
+      } 
+    } finally {
+      tryCloseCursor(cursor);
+    }
     return null;   
   }
   
@@ -112,13 +123,16 @@ public class AccountDb {
   }
 
   static OtpType getType(String email) {
-    Cursor cursor = DATABASE.query(TABLE_NAME, null, EMAIL_COLUMN + "= ?", 
-        new String[] {email}, null, null, null);
-    if (cursor != null && cursor.getCount() > 0) {
-      cursor.moveToFirst();
-      Integer value = cursor.getInt(cursor.getColumnIndex(TYPE_COLUMN));
-      return OtpType.getEnum(value);
-    } 
+    Cursor cursor = getAccount(email);
+    try {
+      if (!cursorIsEmpty(cursor)) {
+        cursor.moveToFirst();
+        Integer value = cursor.getInt(cursor.getColumnIndex(TYPE_COLUMN));
+        return OtpType.getEnum(value);
+      } 
+    } finally {
+      tryCloseCursor(cursor);
+    }
     return null;   
   }
 
@@ -142,17 +156,36 @@ public class AccountDb {
    * @param email the user email address. When editing, the new user email.
    * @param secret the secret key.
    * @param oldEmail If editing, the original user email, otherwise null.
+   * @param type hotp vs totp
+   * @param counter only important for the hotp type
    */
   static void update(String email, String secret, String oldEmail,
-      Integer type) {
+      Integer type, Integer counter) {
     ContentValues values = new ContentValues();
     values.put(EMAIL_COLUMN, email);
     values.put(SECRET_COLUMN, secret);
     values.put(TYPE_COLUMN, type);
+    values.put(COUNTER_COLUMN, counter);
     int updated = DATABASE.update(TABLE_NAME, values, 
                                   whereClause(oldEmail), null);
     if (updated == 0) {
       DATABASE.insert(TABLE_NAME, null, values);
+    }
+  }
+  
+  /**
+   * Returns true if the cursor is null, or contains no rows.
+   */
+  public static boolean cursorIsEmpty(Cursor c) {
+    return c == null || c.getCount() == 0;
+  }
+  
+  /**
+   * Closes the cursor if it is not null and not closed.
+   */
+  public static void tryCloseCursor(Cursor c) {
+    if (c != null && !c.isClosed()) {
+      c.close();
     }
   }
 }

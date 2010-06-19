@@ -83,20 +83,24 @@ public class AuthenticatorWidget extends AppWidgetProvider {
    */
   public static void getUsers() {
     Cursor cursor = AccountDb.getNames();
-    if (cursor.getCount() == 0) {
-      mUsers = new String[0];
-      return;
-    }
+    try {
+      if (AccountDb.cursorIsEmpty(cursor)) {
+        mUsers = new String[0];
+        return;
+      }
 
-    mUsers = new String[cursor.getCount()];
-    int index = cursor.getColumnIndex(AccountDb.EMAIL_COLUMN);
-    for (int i = 0; i < cursor.getCount(); i++) {
-      cursor.moveToPosition(i);
-      mUsers[i] = cursor.getString(index);
-    }
-    // if user count changes, index could be invalid, so repair it
-    if (mUsersIdx >= cursor.getCount()) {
-      mUsersIdx = 0;
+      mUsers = new String[cursor.getCount()];
+      int index = cursor.getColumnIndex(AccountDb.EMAIL_COLUMN);
+      for (int i = 0; i < cursor.getCount(); i++) {
+        cursor.moveToPosition(i);
+        mUsers[i] = cursor.getString(index);
+      }
+      // if user count changes, index could be invalid, so repair it
+      if (mUsersIdx >= cursor.getCount()) {
+        mUsersIdx = 0;
+      }
+    } finally {
+      AccountDb.tryCloseCursor(cursor);
     }
   }
   

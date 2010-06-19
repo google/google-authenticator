@@ -28,6 +28,13 @@
     <string name="install_dialog_message">To scan barcodes containing keys, you must install the ZXing barcode scanner.</string>
     <string name="install_button">Install</string>
     <string name="refresh_menu_item">Refresh</string>
+    <string name="more_menu_item">More</string>
+    <string name="about_menu_item">About</string>
+    <string name="about_text">Google Authenticator&lt;br>
+    Version %1$s</string>
+    <string name="opensource_menu_item">Open Source Project</string>
+    <string name="terms_menu_item">Terms of Service</string>
+    <string name="privacy_menu_item">Privacy Policy</string>
     <string name="check_code">
     To check that you have the correct key value for %1$s
     verify that the value here matches the integrity check value provided

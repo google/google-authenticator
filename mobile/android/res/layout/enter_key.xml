@@ -43,7 +43,4 @@
   </LinearLayout>
   <View android:layout_width="wrap_content" android:layout_height="0dip"
     android:layout_weight="1" android:visibility="invisible" />
-  <TextView android:id="@+id/version_text" android:layout_width="fill_parent"
-    android:layout_height="wrap_content" android:layout_marginLeft="10dip"
-    style="?android:attr/textAppearanceSmall" android:gravity="right" />
 </LinearLayout>

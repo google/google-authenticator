@@ -4,7 +4,6 @@ package com.google.android.apps.authenticator;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.Bundle;
 import android.text.Html;
 import android.text.TextUtils;
@@ -28,7 +27,6 @@ public class CheckCodeActivity extends Activity {
   private TextView mCheckCodeTextView;
   private TextView mCodeTextView;
   private TextView mCounterValue;
-  private TextView mVersionText;
 
   /** Called when the activity is first created. */
   @Override
@@ -38,13 +36,6 @@ public class CheckCodeActivity extends Activity {
     mCodeTextView = (TextView) findViewById(R.id.code_value);
     mCheckCodeTextView = (TextView) findViewById(R.id.check_code);
     mCounterValue = (TextView) findViewById(R.id.counter_value);
-    mVersionText = (TextView) findViewById(R.id.version_text);
-    try {
-      mVersionText.setText(
-          getPackageManager().getPackageInfo(getPackageName(), 0).versionName);
-    } catch (NameNotFoundException e) {
-      mVersionText.setText("Unknown");
-    }
   }
 
   @Override
