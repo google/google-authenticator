@@ -122,8 +122,8 @@ static char *get_secret_filename(pam_handle_t *pamh, const char *username,
     free(secret_filename);
     return NULL;
   }
-  free(buf);
   strcat(strcpy(secret_filename, pw->pw_dir), SECRET);
+  free(buf);
   *uid = pw->pw_uid;
   return secret_filename;
 }

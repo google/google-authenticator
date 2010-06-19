@@ -120,8 +120,7 @@ public class CheckCodeScreen extends MainScreen implements AuthenticatorResource
     }
     mCodeTextView.setText(checkCode);
     String checkCodeMessage = sResources.getString(CHECK_CODE);
-    String styledCheckCode = Html.fromHtml(checkCodeMessage);
-    mCheckCodeTextView.setText(styledCheckCode);
+    mCheckCodeTextView.setText(checkCodeMessage);
     FieldUtils.setVisible(mCheckCodeTextView, true);
     FieldUtils.setVisible(mCodeArea, true);
   }
@@ -131,8 +130,7 @@ public class CheckCodeScreen extends MainScreen implements AuthenticatorResource
    */
   private void tellUserToGetSecretKey() {
     String message = sResources.getString(NOT_INITIALIZED);
-    String styledResult = Html.fromHtml(message);
-    mCheckCodeTextView.setText(styledResult);
+    mCheckCodeTextView.setText(message);
     FieldUtils.setVisible(mCheckCodeTextView, true);
     FieldUtils.setVisible(mCodeArea, false);
   }
