@@ -20,7 +20,7 @@ Currently, the following options are recognized:
   DISALLOW_REUSE
     if present, this signals the a time-based token can only ever be used
     exactly once. Any attempt to log in using the same token will be denied.
-    This means, that users can typically no log in faster than once every
+    This means, that users can typically not log in faster than once every
     ~30 seconds.
 
     The option is followed by a space-separated list of time stamps that
@@ -30,8 +30,8 @@ Currently, the following options are recognized:
     the presence of this option indicates that the secret can be used to
     authenticate users with a time-based token.
 
-Any all-numeric sequence of eight-digit numbers are one-time randomly
-generated one-time tokens. The user can enter any arbitrary one-time code
+Any all-numeric sequence of eight-digit numbers are randomly generated
+one-time tokens. The user can enter any arbitrary one-time code
 to log into his account. The code will then be removed from the file.
 
 
