@@ -485,7 +485,7 @@ static int check_timebased_code(pam_handle_t *pamh,
                                 const uint8_t *secret, int secretLen,
                                 int code) {
   if (!is_totp(*buf)) {
-    // The secret file does not actual contain information for a time-based
+    // The secret file does not actually contain information for a time-based
     // code. Return to caller and see if any other authentication methods
     // apply.
     return 1;
@@ -565,7 +565,7 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
         break;
     }
 
-    // If nothing matched, so an error message
+    // If nothing matched, display an error message
     if (rc != PAM_SUCCESS) {
       log_message(LOG_ERR, pamh, "Invalid verification code");
     }
