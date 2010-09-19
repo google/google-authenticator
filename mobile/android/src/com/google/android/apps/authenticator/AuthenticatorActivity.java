@@ -26,12 +26,14 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.AdapterView.AdapterContextMenuInfo;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -45,8 +47,9 @@ import javax.crypto.spec.SecretKeySpec;
  * The main activity that displays usernames and codes
  * 
  * @author sweis@google.com (Steve Weis)
+ * @author adhintz@google.com (Drew Hintz)
  */
-public class AuthenticatorActivity extends Activity {
+public class AuthenticatorActivity extends Activity implements OnClickListener {
 
   private static AuthenticatorActivity SINGLETON; // used only by saveSecret 
   
@@ -59,6 +62,9 @@ public class AuthenticatorActivity extends Activity {
   private ListView mUserList;
   private PinListAdapter mUserAdapter;
   private PinInfo[] mUsers = {};
+  private Button mScanBarcodeButton;
+  private Button mEnterKeyButton;
+  private LinearLayout mButtonsLayout; 
   public static boolean mAccessibilityAvailable;
   private static String mVersion;
   
@@ -109,8 +115,15 @@ public class AuthenticatorActivity extends Activity {
 
     mUserList = (ListView) findViewById(R.id.user_list);
     mStatusText = (TextView) findViewById(R.id.status_text);
+    mScanBarcodeButton = (Button) findViewById(R.id.scan_barcode_button);
+    mScanBarcodeButton.setOnClickListener(this);
+    mEnterKeyButton = (Button) findViewById(R.id.enter_key_button);
+    mEnterKeyButton.setOnClickListener(this);
+    mButtonsLayout = (LinearLayout) findViewById(R.id.main_buttons);
+    mButtonsLayout.setVisibility(View.GONE);
     mEnterPinTextView = (TextView) findViewById(R.id.enter_pin);
     mEnterPinTextView.setVisibility(View.GONE);
+    
     mUserList.setVisibility(View.GONE);
     if (mAccessibilityAvailable) {
       mUserAdapter = new PinListAdapter(this, R.layout.user_row, mUsers);
@@ -205,6 +218,7 @@ public class AuthenticatorActivity extends Activity {
         if (mUserList.getVisibility() != View.VISIBLE) {
           mEnterPinTextView.setText(R.string.enter_pin);
           mEnterPinTextView.setVisibility(View.VISIBLE);
+          mButtonsLayout.setVisibility(View.GONE);
           mUserList.setVisibility(View.VISIBLE);
           registerForContextMenu(mUserList);
         }
@@ -224,12 +238,12 @@ public class AuthenticatorActivity extends Activity {
    * Tells the user to visit a web page to get a secret key.
    */
   private void tellUserToGetSecretKey() {
-    // TODO(sweis) fill this in with code to send our phone number to the server
     String notInitialized = getString(R.string.not_initialized);
     CharSequence styledNotInitalized = Html.fromHtml(notInitialized);
     mEnterPinTextView.setText(styledNotInitalized);
     mEnterPinTextView.setMovementMethod(LinkMovementMethod.getInstance());
     mEnterPinTextView.setVisibility(View.VISIBLE);
+    mButtonsLayout.setVisibility(View.VISIBLE);
     mUserList.setVisibility(View.GONE);
   }
 
@@ -516,16 +530,10 @@ public class AuthenticatorActivity extends Activity {
     Intent intent;
     switch (item.getItemId()) {
       case R.id.enter_key_item:
-        intent = new Intent(Intent.ACTION_VIEW);
-        intent.setClass(this, EnterKeyActivity.class);
-        startActivity(intent);
+        this.manuallyEnterKey();
         return true;
       case R.id.scan_barcode:
-        Intent intentScan = new Intent("com.google.zxing.client.android.SCAN");
-        intentScan.putExtra("SCAN_MODE", "QR_CODE_MODE");
-        intentScan.putExtra("SAVE_HISTORY", false);
-        try { startActivityForResult(intentScan, SCAN_REQUEST); }
-        catch (ActivityNotFoundException e) { showDownloadDialog(); }
+        this.scanBarcode();
         return true;
       case R.id.refresh:
         refreshUserList();
@@ -561,6 +569,28 @@ public class AuthenticatorActivity extends Activity {
       String contents = intent.getStringExtra("SCAN_RESULT");
       parseSecret(Uri.parse(contents));
     }
+  }
+  
+  public void onClick(View view) {
+    if (view == mScanBarcodeButton) {
+      this.scanBarcode();
+    } else if (view == mEnterKeyButton) {
+      this.manuallyEnterKey();
+    }
+  }
+  
+  private void manuallyEnterKey() {
+    Intent intent = new Intent(Intent.ACTION_VIEW);
+    intent.setClass(this, EnterKeyActivity.class);
+    startActivity(intent);
+  }
+
+  private void scanBarcode() {
+    Intent intentScan = new Intent("com.google.zxing.client.android.SCAN");
+    intentScan.putExtra("SCAN_MODE", "QR_CODE_MODE");
+    intentScan.putExtra("SAVE_HISTORY", false);
+    try { startActivityForResult(intentScan, SCAN_REQUEST); }
+    catch (ActivityNotFoundException e) { showDownloadDialog(); }
   }
   
   /**

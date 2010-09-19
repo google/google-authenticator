@@ -2,9 +2,9 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
   android:orientation="vertical" android:layout_width="fill_parent"
   android:layout_height="fill_parent" android:layout_marginLeft="5dip">
-  <LinearLayout android:id="@+id/buttons" android:layout_width="fill_parent"
+  <LinearLayout android:layout_width="fill_parent"
     android:layout_height="wrap_content" android:paddingTop="4dip"
-    android:layout_marginLeft="10dip" android:layout_marginRight="10dip"
+    android:layout_marginLeft="20dip" android:layout_marginRight="10dip"
     android:orientation="vertical">
     <TextView android:id="@+id/enter_account_label"
       android:layout_width="fill_parent" android:layout_height="wrap_content"
@@ -28,14 +28,12 @@
       android:id="@+id/type_choice" android:prompt="@string/type_prompt" />
 
 </LinearLayout>
-  <LinearLayout android:id="@+id/buttons" android:layout_width="fill_parent"
-    android:layout_height="wrap_content" android:paddingTop="4dip"
-    android:layout_marginLeft="10dip" android:layout_marginRight="10dip">
+  <LinearLayout android:layout_width="fill_parent"
+    android:paddingTop="4dip"
+    android:layout_marginLeft="10dip" android:layout_marginRight="10dip"
+    android:gravity="bottom|center_horizontal" android:layout_height="fill_parent">
     <Button android:id="@+id/submit_button" android:text="@string/submit"
       android:layout_height="wrap_content" android:layout_width="wrap_content"
-      android:layout_weight="1" />
-    <Button android:id="@+id/clear_button" android:text="@string/clear"
-      android:layout_width="wrap_content" android:layout_height="wrap_content"
       android:layout_weight="1" />
     <Button android:id="@+id/cancel_button" android:text="@string/cancel"
       android:layout_height="wrap_content" android:layout_width="wrap_content"

@@ -31,7 +31,6 @@ public class EnterKeyActivity extends Activity implements OnClickListener,
   private EditText mKeyEntryField;
   private EditText mAccountName;
   private Spinner mType;
-  private Button mClearButton;
   private Button mSubmitButton;
   private Button mCancelButton;
   
@@ -47,7 +46,6 @@ public class EnterKeyActivity extends Activity implements OnClickListener,
     mKeyEntryField = (EditText) findViewById(R.id.key_value);    
     mStatusText = (TextView) findViewById(R.id.status_text);
     mSubmitButton = (Button) findViewById(R.id.submit_button);
-    mClearButton = (Button) findViewById(R.id.clear_button);
     mCancelButton = (Button) findViewById(R.id.cancel_button);
     mAccountName = (EditText) findViewById(R.id.account_name);
     mType = (Spinner) findViewById(R.id.type_choice);
@@ -59,7 +57,6 @@ public class EnterKeyActivity extends Activity implements OnClickListener,
 
     // Set listeners
     mSubmitButton.setOnClickListener(this);
-    mClearButton.setOnClickListener(this);
     mCancelButton.setOnClickListener(this);
     mKeyEntryField.addTextChangedListener(this);
   }
@@ -82,14 +79,15 @@ public class EnterKeyActivity extends Activity implements OnClickListener,
       if (decoded.length < MIN_KEY_BYTES) {
         // If the user is trying to submit a key that's too short, then
         // display a message saying it's too short.
-        mStatusText.setText(submitting ? "Key value is too short" : "");
+        mStatusText.setText(submitting ?
+            getString(R.string.enter_key_too_short) : "");
         mStatusText.setTextColor(Color.RED);
         return false;
       } else {
         String checkCode =
           CheckCodeActivity.getCheckCode(userEnteredKey);
-        mStatusText.setText("Integrity check value: " + checkCode);
-        mStatusText.setTextColor(Color.GREEN);
+        mStatusText.setText(getString(R.string.enter_key_check) + checkCode);
+        mStatusText.setTextColor(Color.WHITE);
         return true;
       }
     } catch (DecodingException e) {
@@ -97,7 +95,7 @@ public class EnterKeyActivity extends Activity implements OnClickListener,
       mStatusText.setTextColor(Color.RED);
       return false;
     } catch (GeneralSecurityException e) {
-      mStatusText.setText("Unexpected problem");
+      mStatusText.setText(getString(R.string.enter_key_problem));
       mStatusText.setTextColor(Color.RED);
       return false;
     }
@@ -114,10 +112,6 @@ public class EnterKeyActivity extends Activity implements OnClickListener,
             AccountDb.DEFAULT_COUNTER);
         finish();
       }
-    } else if (view == mClearButton) {
-      mStatusText.setText("");
-      mAccountName.getText().clear();
-      mKeyEntryField.getText().clear();
     } else if (view == mCancelButton) {
       finish(); 
     }

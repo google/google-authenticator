@@ -27,6 +27,8 @@ class PinInfo {
  * Displays the list of users and the current OTP values.
  */
 public class PinListAdapter extends ArrayAdapter<PinInfo>  {
+  public static final float SCALEX_NORMAL = (float) 1.0;
+  public static final float SCALEX_UNDERSCORE = (float) 0.87;
   private AuthenticatorActivity mContext;
   
   public PinListAdapter(Context context, int userRowId, PinInfo[] items) {
@@ -64,6 +66,11 @@ public class PinListAdapter extends ArrayAdapter<PinInfo>  {
      buttonView.setVisibility(View.GONE);
    }
    
+   if (mContext.getString(R.string.empty_pin).equals(currentPin.mPin)) {
+     pinView.setTextScaleX(SCALEX_UNDERSCORE); // smaller gap between underscores
+   } else {
+     pinView.setTextScaleX(SCALEX_NORMAL);
+   }
    pinView.setText(currentPin.mPin);
    userView.setText(currentPin.mUser);
    
@@ -105,5 +112,6 @@ class OnButtonClickListener implements OnClickListener {
     String user = (String) userView.getText();
     String pin = mContext.computeAndDisplayPin(user, mPosition, true);
     pinView.setText(pin);
+    pinView.setTextScaleX(PinListAdapter.SCALEX_NORMAL); // adjust to display numbers
   }
 }
