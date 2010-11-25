@@ -5,6 +5,7 @@ mobile/blackberry/local\.properties
 mobile/blackberry/LogFile\.txt
 mobile/blackberry/\.settings/
 mobile/blackberry/\.tmp/
+mobile/blackberry/\.locale_interfaces/
 mobile/blackberry/\.project
 mobile/blackberry/\.classpath
 mobile/blackberry/.*\.cod
@@ -15,3 +16,4 @@ mobile/blackberry/.*\.jad
 mobile/blackberry/.*\.jar
 mobile/blackberry/.*\.rapc
 mobile/blackberry/src/com/google/authenticator/blackberry/Build.java
+mobile/.metadata/
