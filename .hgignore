@@ -1,5 +1,6 @@
 mobile/blackberry/bin/
 mobile/blackberry/build/
+mobile/blackberry/deliverables/
 mobile/blackberry/release/
 mobile/blackberry/local\.properties
 mobile/blackberry/LogFile\.txt
