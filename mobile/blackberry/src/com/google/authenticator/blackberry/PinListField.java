@@ -82,12 +82,6 @@ public class PinListField extends ListField implements AuthenticatorResource {
         Dialog.inform(message);
       }
     };
-    MenuItem checkCodeItem = new MenuItem(sResources, CHECK_CODE_MENU_ITEM, 0,
-        0) {
-      public void run() {
-        pushScreen(new CheckCodeScreen(item.mUser));
-      }
-    };
     MenuItem deleteItem = new MenuItem(sResources, DELETE, 0, 0) {
       public void run() {
         String message = (sResources.getString(DELETE_MESSAGE) + "\n" + item.mUser);
@@ -101,7 +95,14 @@ public class PinListField extends ListField implements AuthenticatorResource {
     };
 
     contextMenu.addItem(copyItem);
-    contextMenu.addItem(checkCodeItem);
+    if (item.mIsHotp) {
+      MenuItem checkCodeItem = new MenuItem(sResources, CHECK_CODE_MENU_ITEM, 0, 0) {
+        public void run() {
+          pushScreen(new CheckCodeScreen(item.mUser));
+        }
+      };
+      contextMenu.addItem(checkCodeItem);
+    }
     contextMenu.addItem(deleteItem);
   }
 
