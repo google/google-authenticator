@@ -64,8 +64,8 @@ public class EnterKeyScreen extends MainScreen implements AuthenticatorResource,
     mDescriptionText = new LabelField(sResources.getString(ENTER_KEY_HELP));
     mAccountName = new EditField(EditField.NO_NEWLINE);
     mAccountName.setLabel(sResources.getString(ENTER_ACCOUNT_LABEL));
-    mKeyEntryField = new EditField(
-        sResources.getString(ENTER_KEY_LABEL), "");
+    mKeyEntryField = new EditField(EditField.NO_NEWLINE);
+    mKeyEntryField.setLabel(sResources.getString(ENTER_KEY_LABEL));
     mType = new ObjectChoiceField(sResources.getString(TYPE_PROMPT), OtpType
         .values());
     mStatusText = new LabelField() {
