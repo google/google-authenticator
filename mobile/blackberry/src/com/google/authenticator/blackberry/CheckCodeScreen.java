@@ -38,6 +38,8 @@ import com.google.authenticator.blackberry.resource.AuthenticatorResource;
  */
 public class CheckCodeScreen extends MainScreen implements AuthenticatorResource {
 
+  private static final boolean SHOW_INSTRUCTIONS = false;
+
   private static ResourceBundle sResources = ResourceBundle.getBundle(
       BUNDLE_ID, BUNDLE_NAME);
 
@@ -116,13 +118,15 @@ public class CheckCodeScreen extends MainScreen implements AuthenticatorResource
     }
     if (errorMessage != null) {
       mCheckCodeTextView.setText(errorMessage);
-      return;
+      FieldUtils.setVisible(mCheckCodeTextView, true);
+      FieldUtils.setVisible(mCodeArea, false);
+    } else {
+      mCodeTextView.setText(checkCode);
+      String checkCodeMessage = sResources.getString(CHECK_CODE);
+      mCheckCodeTextView.setText(checkCodeMessage);
+      FieldUtils.setVisible(mCheckCodeTextView, SHOW_INSTRUCTIONS);
+      FieldUtils.setVisible(mCodeArea, true);
     }
-    mCodeTextView.setText(checkCode);
-    String checkCodeMessage = sResources.getString(CHECK_CODE);
-    mCheckCodeTextView.setText(checkCodeMessage);
-    FieldUtils.setVisible(mCheckCodeTextView, true);
-    FieldUtils.setVisible(mCodeArea, true);
   }
 
   /**
