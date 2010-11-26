@@ -212,6 +212,7 @@ public class AuthenticatorScreen extends MainScreen implements UpdateCallback,
 
     add(mEnterPinTextView);
     add(mUserList);
+    add(new LabelField(" ")); // One-line spacer
     add(mStatusText);
     add(mVersionText);
 
