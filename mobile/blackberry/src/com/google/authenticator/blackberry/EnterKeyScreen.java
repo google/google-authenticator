@@ -44,6 +44,8 @@ public class EnterKeyScreen extends MainScreen implements AuthenticatorResource,
 
   private static final int MIN_KEY_BYTES = 10;
 
+  private static final boolean INTEGRITY_CHECK_ENABLED = false;
+
   private LabelField mDescriptionText;
   private LabelField mStatusText;
   private LabelField mVersionText;
@@ -118,10 +120,13 @@ public class EnterKeyScreen extends MainScreen implements AuthenticatorResource,
         mStatusColor = Color.BLACK;
         return false;
       } else {
-        String checkCode = CheckCodeScreen.getCheckCode(mKeyEntryField
-            .getText());
-        mStatusText.setText("Integrity check value: " + checkCode);
-        mStatusColor = Color.GREEN;
+        if (INTEGRITY_CHECK_ENABLED) {
+          String checkCode = CheckCodeScreen.getCheckCode(mKeyEntryField.getText());
+          mStatusText.setText("Integrity check value: " + checkCode);
+          mStatusColor = Color.GREEN;
+        } else {
+          mStatusText.setText("");
+        }
         return true;
       }
     } catch (Base32String.DecodingException e) {
