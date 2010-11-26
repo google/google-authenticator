@@ -20,6 +20,7 @@ import net.rim.blackberry.api.browser.Browser;
 import net.rim.blackberry.api.browser.BrowserSession;
 import net.rim.device.api.i18n.ResourceBundle;
 import net.rim.device.api.system.Alert;
+import net.rim.device.api.system.Application;
 import net.rim.device.api.system.ApplicationDescriptor;
 import net.rim.device.api.ui.MenuItem;
 import net.rim.device.api.ui.Screen;
@@ -42,12 +43,16 @@ import com.google.authenticator.blackberry.resource.AuthenticatorResource;
  * BlackBerry port of {@code AuthenticatorActivity}.
  */
 public class AuthenticatorScreen extends MainScreen implements UpdateCallback,
-    AuthenticatorResource {
+    AuthenticatorResource, Runnable {
   
   private static ResourceBundle sResources = ResourceBundle.getBundle(
       BUNDLE_ID, BUNDLE_NAME);
 
   private static final int VIBRATE_DURATION = 200;
+  
+  private static final long REFRESH_INTERVAL = 30 * 1000;
+
+  private static final boolean AUTO_REFRESH = true;
   
   private static final String TERMS_URL = "http://www.google.com/accounts/TOS";
   
@@ -178,6 +183,7 @@ public class AuthenticatorScreen extends MainScreen implements UpdateCallback,
   private PinListFieldCallback mUserAdapter;
   private PinInfo[] mUsers = {};
   private boolean mUpdateAvailable;
+  private int mTimer = -1;
   
   static final String DEFAULT_USER = "Default account";
   private static final String OTP_SCHEME = "otpauth";
@@ -238,8 +244,54 @@ public class AuthenticatorScreen extends MainScreen implements UpdateCallback,
     super.onExposed();
     onResume();
   }
+  
+  /**
+   * {@inheritDoc}
+   */
+  protected void onObscured() {
+    onPause();
+    super.onObscured();
+  }
 
   private void onResume() {
+    refreshUserList();
+    if (AUTO_REFRESH) {
+      startTimer();
+    }
+  }
+
+  private void onPause() {
+    if (isTimerSet()) {
+      stopTimer();
+    }
+  }
+  
+  private boolean isTimerSet() {
+    return mTimer != -1;
+  }
+  
+  private void startTimer() {
+    if (isTimerSet()) {
+      stopTimer();
+    }
+    Application application = getApplication();
+    Runnable runnable = this;
+    boolean repeat = true;
+    mTimer = application.invokeLater(runnable, REFRESH_INTERVAL, repeat);
+  }
+  
+  private void stopTimer() {
+    if (isTimerSet()) {
+      Application application = getApplication();
+      application.cancelInvokeLater(mTimer);
+      mTimer = -1;
+    }
+  }
+  
+  /**
+   * {@inheritDoc}
+   */
+  public void run() {
     refreshUserList();
   }
   
@@ -344,11 +396,6 @@ public class AuthenticatorScreen extends MainScreen implements UpdateCallback,
         pushScreen(new EnterKeyScreen());
       }
     };
-    MenuItem refreshItem = new MenuItem(sResources, REFRESH_MENU_ITEM, 0, 0) {
-      public void run() {
-        refreshUserList();
-      }
-    };
     MenuItem termsItem = new MenuItem(sResources, TERMS_MENU_ITEM, 0, 0) {
       public void run() {
         BrowserSession session = Browser.getDefaultSession();
@@ -362,7 +409,14 @@ public class AuthenticatorScreen extends MainScreen implements UpdateCallback,
       }
     };
     menu.add(enterKeyItem);
-    menu.add(refreshItem);
+    if (!isTimerSet()) {
+      MenuItem refreshItem = new MenuItem(sResources, REFRESH_MENU_ITEM, 0, 0) {
+        public void run() {
+          refreshUserList();
+        }
+      };
+      menu.add(refreshItem);
+    }
     if (mUpdateAvailable) {
       MenuItem updateItem = new MenuItem(sResources, UPDATE_NOW, 0, 0) {
         public void run() {
