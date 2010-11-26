@@ -62,7 +62,8 @@ public class EnterKeyScreen extends MainScreen implements AuthenticatorResource,
     setTitle(sResources.getString(ENTER_KEY_TITLE));
     VerticalFieldManager manager = new VerticalFieldManager();
     mDescriptionText = new LabelField(sResources.getString(ENTER_KEY_HELP));
-    mAccountName = new EditField(sResources.getString(ENTER_ACCOUNT_LABEL), ""); 
+    mAccountName = new EditField(EditField.NO_NEWLINE);
+    mAccountName.setLabel(sResources.getString(ENTER_ACCOUNT_LABEL));
     mKeyEntryField = new EditField(
         sResources.getString(ENTER_KEY_LABEL), "");
     mType = new ObjectChoiceField(sResources.getString(TYPE_PROMPT), OtpType
