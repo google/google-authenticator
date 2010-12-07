@@ -135,6 +135,8 @@ public interface Build {
 			<fileset dir="${build.dir}/BlackBerry60" includes="*.cod" />
 			<override key="MIDlet-Name" value="${title}" />
 		</jadtool>
+		<replace dir="${release.dir}/google-authenticator-${version}/ota/" includes="**/*.jad" token="RIM-COD-URL: " value="RIM-COD-URL-0: " />
+		<replace dir="${release.dir}/google-authenticator-${version}/ota/" includes="**/*.jad" token="RIM-COD-Size: " value="RIM-COD-Size-0: " />
 		<zip destfile="${release.dir}/google-authenticator-${version}.zip" basedir="${release.dir}/google-authenticator-${version}" />
 		<move file="${release.dir}/google-authenticator-${version}.zip" todir="${release.dir}/google-authenticator-${version}" />
 		<echo file="${release.dir}/google-authenticator-${version}/app.yaml"># Google App Engine Python Application Configuration
