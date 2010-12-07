@@ -36,43 +36,43 @@ public interface Build {
 
 	<target name="release" depends="clean,genfiles">
 		<mkdir dir="${build.dir}" />
-		<mkdir dir="${build.dir}/BlackBerry45" />
-		<mkdir dir="${build.dir}/BlackBerry46" />
-		<mkdir dir="${build.dir}/BlackBerry47" />
-		<mkdir dir="${build.dir}/BlackBerry50" />
-		<mkdir dir="${build.dir}/BlackBerry60" />
+		<mkdir dir="${build.dir}/BlackBerry-45" />
+		<mkdir dir="${build.dir}/BlackBerry-46" />
+		<mkdir dir="${build.dir}/BlackBerry-47" />
+		<mkdir dir="${build.dir}/BlackBerry-50" />
+		<mkdir dir="${build.dir}/BlackBerry-60" />
 
 		<!-- Note: The icon file size is limited, so use 8-bit PNGs -->
-		<copy file="${res.dir}/drawable-mdpi/${icon}" todir="${build.dir}/BlackBerry45" />
-		<copy file="${res.dir}/drawable-hdpi/${icon}" todir="${build.dir}/BlackBerry46" />
-		<copy file="${res.dir}/drawable-hdpi/${icon}" todir="${build.dir}/BlackBerry47" />
-		<copy file="${res.dir}/drawable-hdpi/${icon}" todir="${build.dir}/BlackBerry50" />
-		<copy file="${res.dir}/drawable-hdpi/${icon}" todir="${build.dir}/BlackBerry60" />
-		<rapc nowarn="true" generatesourcelist="true" output="com_google_authenticator" destdir="${build.dir}/BlackBerry45" jdehome="${jdehome45}">
+		<copy file="${res.dir}/drawable-mdpi/${icon}" todir="${build.dir}/BlackBerry-45" />
+		<copy file="${res.dir}/drawable-hdpi/${icon}" todir="${build.dir}/BlackBerry-46" />
+		<copy file="${res.dir}/drawable-hdpi/${icon}" todir="${build.dir}/BlackBerry-47" />
+		<copy file="${res.dir}/drawable-hdpi/${icon}" todir="${build.dir}/BlackBerry-50" />
+		<copy file="${res.dir}/drawable-hdpi/${icon}" todir="${build.dir}/BlackBerry-60" />
+		<rapc nowarn="true" generatesourcelist="true" output="com_google_authenticator" destdir="${build.dir}/BlackBerry-45" jdehome="${jdehome45}">
 			<jdp file="application.properties">
 				<entry file="entry/startup.properties" />
 			</jdp>
 			<src refid="src.path" />
 		</rapc>
-		<rapc nowarn="true" generatesourcelist="true" output="com_google_authenticator" destdir="${build.dir}/BlackBerry46" jdehome="${jdehome46}">
+		<rapc nowarn="true" generatesourcelist="true" output="com_google_authenticator" destdir="${build.dir}/BlackBerry-46" jdehome="${jdehome46}">
 			<jdp file="application.properties">
 				<entry file="entry/startup.properties" />
 			</jdp>
 			<src refid="src.path" />
 		</rapc>
-		<rapc nowarn="true" generatesourcelist="true" output="com_google_authenticator" destdir="${build.dir}/BlackBerry47" jdehome="${jdehome47}">
+		<rapc nowarn="true" generatesourcelist="true" output="com_google_authenticator" destdir="${build.dir}/BlackBerry-47" jdehome="${jdehome47}">
 			<jdp file="application.properties">
 				<entry file="entry/startup.properties" />
 			</jdp>
 			<src refid="src.path" />
 		</rapc>
-		<rapc nowarn="true" generatesourcelist="true" output="com_google_authenticator" destdir="${build.dir}/BlackBerry50" jdehome="${jdehome50}">
+		<rapc nowarn="true" generatesourcelist="true" output="com_google_authenticator" destdir="${build.dir}/BlackBerry-50" jdehome="${jdehome50}">
 			<jdp file="application.properties">
 				<entry file="entry/startup.properties" />
 			</jdp>
 			<src refid="src.path" />
 		</rapc>
-		<rapc nowarn="true" generatesourcelist="true" output="com_google_authenticator" destdir="${build.dir}/BlackBerry60" jdehome="${jdehome60}">
+		<rapc nowarn="true" generatesourcelist="true" output="com_google_authenticator" destdir="${build.dir}/BlackBerry-60" jdehome="${jdehome60}">
 			<jdp file="application.properties">
 				<entry file="entry/startup.properties" />
 			</jdp>
@@ -86,53 +86,53 @@ public interface Build {
 		<mkdir dir="${release.dir}/google-authenticator-${version}" />
 		<mkdir dir="${release.dir}/google-authenticator-${version}/alx" />
 		<mkdir dir="${release.dir}/google-authenticator-${version}/ota" />
-		<mkdir dir="${release.dir}/google-authenticator-${version}/alx/BlackBerry45" />
-		<mkdir dir="${release.dir}/google-authenticator-${version}/alx/BlackBerry46" />
-		<mkdir dir="${release.dir}/google-authenticator-${version}/alx/BlackBerry47" />
-		<mkdir dir="${release.dir}/google-authenticator-${version}/alx/BlackBerry50" />
-		<mkdir dir="${release.dir}/google-authenticator-${version}/alx/BlackBerry60" />
-		<mkdir dir="${release.dir}/google-authenticator-${version}/ota/BlackBerry45" />
-		<mkdir dir="${release.dir}/google-authenticator-${version}/ota/BlackBerry46" />
-		<mkdir dir="${release.dir}/google-authenticator-${version}/ota/BlackBerry47" />
-		<mkdir dir="${release.dir}/google-authenticator-${version}/ota/BlackBerry50" />
-		<mkdir dir="${release.dir}/google-authenticator-${version}/ota/BlackBerry60" />
+		<mkdir dir="${release.dir}/google-authenticator-${version}/alx/BlackBerry-45" />
+		<mkdir dir="${release.dir}/google-authenticator-${version}/alx/BlackBerry-46" />
+		<mkdir dir="${release.dir}/google-authenticator-${version}/alx/BlackBerry-47" />
+		<mkdir dir="${release.dir}/google-authenticator-${version}/alx/BlackBerry-50" />
+		<mkdir dir="${release.dir}/google-authenticator-${version}/alx/BlackBerry-60" />
+		<mkdir dir="${release.dir}/google-authenticator-${version}/ota/BlackBerry-45" />
+		<mkdir dir="${release.dir}/google-authenticator-${version}/ota/BlackBerry-46" />
+		<mkdir dir="${release.dir}/google-authenticator-${version}/ota/BlackBerry-47" />
+		<mkdir dir="${release.dir}/google-authenticator-${version}/ota/BlackBerry-50" />
+		<mkdir dir="${release.dir}/google-authenticator-${version}/ota/BlackBerry-60" />
 		<alx destdir="${release.dir}/google-authenticator-${version}/alx" filename="GoogleAuthenticator.alx">
 			<application file="application.properties">
-				<codset greaterthanequal="4.5" lessthan="4.6" dir="BlackBerry45">
-					<fileset dir="${build.dir}/BlackBerry45" includes="*.cod" />
+				<codset greaterthanequal="4.5" lessthan="4.6" dir="BlackBerry-45">
+					<fileset dir="${build.dir}/BlackBerry-45" includes="*.cod" />
 				</codset>
-				<codset greaterthanequal="4.6" lessthan="4.7" dir="BlackBerry46">
-					<fileset dir="${build.dir}/BlackBerry46" includes="*.cod" />
+				<codset greaterthanequal="4.6" lessthan="4.7" dir="BlackBerry-46">
+					<fileset dir="${build.dir}/BlackBerry-46" includes="*.cod" />
 				</codset>
-				<codset greaterthanequal="4.7" lessthan="5.0" dir="BlackBerry47">
-					<fileset dir="${build.dir}/BlackBerry47" includes="*.cod" />
+				<codset greaterthanequal="4.7" lessthan="5.0" dir="BlackBerry-47">
+					<fileset dir="${build.dir}/BlackBerry-47" includes="*.cod" />
 				</codset>
-				<codset greaterthanequal="5.0" lessthan="6.0" dir="BlackBerry50">
-					<fileset dir="${build.dir}/BlackBerry50" includes="*.cod" />
+				<codset greaterthanequal="5.0" lessthan="6.0" dir="BlackBerry-50">
+					<fileset dir="${build.dir}/BlackBerry-50" includes="*.cod" />
 				</codset>
-				<codset greaterthanequal="6.0" dir="BlackBerry60">
-					<fileset dir="${build.dir}/BlackBerry60" includes="*.cod" />
+				<codset greaterthanequal="6.0" dir="BlackBerry-60">
+					<fileset dir="${build.dir}/BlackBerry-60" includes="*.cod" />
 				</codset>
 			</application>
 		</alx>
-		<jadtool input="${build.dir}/BlackBerry45/com_google_authenticator.jad" destdir="${release.dir}/google-authenticator-${version}/ota/BlackBerry45">
-			<fileset dir="${build.dir}/BlackBerry45" includes="*.cod" />
+		<jadtool input="${build.dir}/BlackBerry-45/com_google_authenticator.jad" destdir="${release.dir}/google-authenticator-${version}/ota/BlackBerry-45">
+			<fileset dir="${build.dir}/BlackBerry-45" includes="*.cod" />
 			<override key="MIDlet-Name" value="${title}" />
 		</jadtool>
-		<jadtool input="${build.dir}/BlackBerry46/com_google_authenticator.jad" destdir="${release.dir}/google-authenticator-${version}/ota/BlackBerry46">
-			<fileset dir="${build.dir}/BlackBerry46" includes="*.cod" />
+		<jadtool input="${build.dir}/BlackBerry-46/com_google_authenticator.jad" destdir="${release.dir}/google-authenticator-${version}/ota/BlackBerry-46">
+			<fileset dir="${build.dir}/BlackBerry-46" includes="*.cod" />
 			<override key="MIDlet-Name" value="${title}" />
 		</jadtool>
-		<jadtool input="${build.dir}/BlackBerry47/com_google_authenticator.jad" destdir="${release.dir}/google-authenticator-${version}/ota/BlackBerry47">
-			<fileset dir="${build.dir}/BlackBerry47" includes="*.cod" />
+		<jadtool input="${build.dir}/BlackBerry-47/com_google_authenticator.jad" destdir="${release.dir}/google-authenticator-${version}/ota/BlackBerry-47">
+			<fileset dir="${build.dir}/BlackBerry-47" includes="*.cod" />
 			<override key="MIDlet-Name" value="${title}" />
 		</jadtool>
-		<jadtool input="${build.dir}/BlackBerry50/com_google_authenticator.jad" destdir="${release.dir}/google-authenticator-${version}/ota/BlackBerry50">
-			<fileset dir="${build.dir}/BlackBerry50" includes="*.cod" />
+		<jadtool input="${build.dir}/BlackBerry-50/com_google_authenticator.jad" destdir="${release.dir}/google-authenticator-${version}/ota/BlackBerry-50">
+			<fileset dir="${build.dir}/BlackBerry-50" includes="*.cod" />
 			<override key="MIDlet-Name" value="${title}" />
 		</jadtool>
-		<jadtool input="${build.dir}/BlackBerry60/com_google_authenticator.jad" destdir="${release.dir}/google-authenticator-${version}/ota/BlackBerry60">
-			<fileset dir="${build.dir}/BlackBerry60" includes="*.cod" />
+		<jadtool input="${build.dir}/BlackBerry-60/com_google_authenticator.jad" destdir="${release.dir}/google-authenticator-${version}/ota/BlackBerry-60">
+			<fileset dir="${build.dir}/BlackBerry-60" includes="*.cod" />
 			<override key="MIDlet-Name" value="${title}" />
 		</jadtool>
 		<replace dir="${release.dir}/google-authenticator-${version}/ota/" includes="**/*.jad" token="RIM-COD-URL: " value="RIM-COD-URL-0: " />
@@ -168,15 +168,15 @@ import os
 ua = os.environ.get('HTTP_USER_AGENT', 'unknown')
 if ua.startswith('BlackBerry'):
   if '/6.' in ua:
-    platform = 'BlackBerry60'
+    platform = 'BlackBerry-60'
   elif '/5.0.' in ua:
-    platform = 'BlackBerry50'
+    platform = 'BlackBerry-50'
   elif '/4.7.' in ua:
-    platform = 'BlackBerry47'
+    platform = 'BlackBerry-47'
   elif '/4.6.' in ua:
-    platform = 'BlackBerry46'
+    platform = 'BlackBerry-46'
   elif '/4.5.' in ua:
-    platform = 'BlackBerry45'
+    platform = 'BlackBerry-45'
   else:
     platform = None
 else:
