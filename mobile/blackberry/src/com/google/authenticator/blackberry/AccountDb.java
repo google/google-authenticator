@@ -22,6 +22,7 @@ import java.util.Vector;
 import com.google.authenticator.blackberry.resource.AuthenticatorResource;
 
 import net.rim.device.api.i18n.ResourceBundle;
+import net.rim.device.api.system.CodeModuleManager;
 import net.rim.device.api.system.CodeSigningKey;
 import net.rim.device.api.system.ControlledAccess;
 import net.rim.device.api.system.PersistentObject;
@@ -96,19 +97,35 @@ public class AccountDb {
   }
 
   static {
-    sPersistentObject = PersistentStore
-        .getPersistentObject(PERSISTENT_STORE_KEY);
-    if (sPersistentObject.getContents() == null) {
-      sPreferences = new Hashtable(10);
-      // Use an instance of a class owned by this application
-      // to easily get the appropriate CodeSigningKey:
-      Object appObject = new FieldUtils();
-      CodeSigningKey codeSigningKey = CodeSigningKey.get(appObject);
-      Object contents = new ControlledAccess(sPreferences, codeSigningKey);
-      sPersistentObject.setContents(contents);
-      sPersistentObject.commit();
-    }
+    sPersistentObject = PersistentStore.getPersistentObject(PERSISTENT_STORE_KEY);
     sPreferences = (Hashtable) sPersistentObject.getContents();
+    if (sPreferences == null) {
+      sPreferences = new Hashtable();
+    }
+    // Use an instance of a class owned by this application
+    // to easily get the appropriate CodeSigningKey:
+    Object appObject = new FieldUtils();
+    
+    // Get the public code signing key
+    CodeSigningKey codeSigningKey = CodeSigningKey.get(appObject);
+    if (codeSigningKey == null) {
+      throw new SecurityException("Code not protected by a signing key");
+    }
+    
+    // Ensure that the code has been signed with the corresponding private key
+    int moduleHandle = CodeModuleManager.getModuleHandleForObject(appObject);
+    if (!ControlledAccess.verifyCodeModuleSignature(moduleHandle, codeSigningKey)) {
+      String signerId = codeSigningKey.getSignerId();
+      throw new SecurityException("Code not signed by " + signerId + " key");
+    }
+    
+    Object contents = sPreferences;
+    
+    // Only allow signed applications to access user data
+    contents = new ControlledAccess(contents, codeSigningKey);
+    
+    sPersistentObject.setContents(contents);
+    sPersistentObject.commit();
   }
 
   private static Vector getAccounts() {
