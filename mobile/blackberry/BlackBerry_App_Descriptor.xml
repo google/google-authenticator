@@ -1,37 +1,27 @@
 <Properties ModelVersion="1.1.2">
-  <General Title="Google Authenticator" Version="1.0.0" Vendor="Google, Inc."
-    Description="Generate verification codes for the 2-step verification feature for your Google Account" />
-  <Application Type="BlackBerry Application" MainMIDletName=""
-    MainArgs="" HomeScreenPosition="0" StartupTier="7" IsSystemModule="false"
-    IsAutostartup="false" />
-  <Resources hasTitleResource="true" TitleResourceBundleName="Authenticator"
-    TitleResourceBundleRelativePath="src/com/google/authenticator/blackberry/resource/Authenticator.rrh"
-    TitleResourceBundleClassName="com.google.authenticator.blackberry.resource.Authenticator"
-    TitleResourceBundleKey="APP_NAME" DescriptionId="APP_DESCRIPTION">
+  <General Title="Google Authenticator" Version="1.0.0" Vendor="Google, Inc." Description="Generate verification codes for the 2-step verification feature for your Google Account"/>
+  <Application Type="BlackBerry Application" MainMIDletName="" MainArgs="" HomeScreenPosition="0" StartupTier="7" IsSystemModule="false" IsAutostartup="false"/>
+  <Resources hasTitleResource="true" TitleResourceBundleName="Authenticator" TitleResourceBundleRelativePath="src/com/google/authenticator/blackberry/resource/Authenticator.rrh" TitleResourceBundleClassName="com.google.authenticator.blackberry.resource.Authenticator" TitleResourceBundleKey="APP_NAME" DescriptionId="APP_DESCRIPTION">
     <Icons>
-      <Icon CanonicalFileName="res/drawable-hdpi/icon.png" IsFocus="false" />
+      <Icon CanonicalFileName="res/drawable-hdpi/icon.png" IsFocus="false"/>
     </Icons>
   </Resources>
-  <Compile OutputCompilerMessages="false" ConvertImages="false"
-    CreateWarningForNoExportedRoutine="true" CompressResources="false"
-    AliasList="">
-    <PreprocessorDefines />
+  <Compile OutputCompilerMessages="false" ConvertImages="false" CreateWarningForNoExportedRoutine="true" CompressResources="false" AliasList="">
+    <PreprocessorDefines/>
   </Compile>
-  <Packaging OutputFileName="GoogleAuthenticator" OutputFolder="deliverables"
-    PreBuildStep="" PostBuildStep="" CleanStep="" GenerateALXFile="true">
-    <AlxFiles />
+  <Packaging OutputFileName="GoogleAuthenticator" OutputFolder="deliverables" PreBuildStep="" PostBuildStep="" CleanStep="" GenerateALXFile="true">
+    <AlxFiles/>
   </Packaging>
   <HiddenProperties>
-    <ClassProtection />
-    <PackageProtection />
+    <ClassProtection/>
+    <PackageProtection>
+      <ProtectInfo ProtectedClassName=".public" KeyFileName="src\com\google\authenticator\blackberry\resource\GOOG.key"/>
+      <ProtectInfo ProtectedClassName=".nonpublic" KeyFileName="src\com\google\authenticator\blackberry\resource\GOOG.key"/>
+    </PackageProtection>
   </HiddenProperties>
   <AlternateEntryPoints>
-    <AlternateEntryPoint Title="startup" MainMIDletName=""
-      ArgumentsForMain="startup" HomeScreenPosition="0" StartupTier="7"
-      IsSystemModule="true" IsAutostartup="true" hasTitleResource="false"
-      TitleResourceBundleKey="" TitleResourceBundleName=""
-      TitleResourceBundleClassName="" TitleResourceBundleRelativePath="">
-      <Icons />
+    <AlternateEntryPoint Title="startup" MainMIDletName="" ArgumentsForMain="startup" HomeScreenPosition="0" StartupTier="7" IsSystemModule="true" IsAutostartup="true" hasTitleResource="false" TitleResourceBundleKey="" TitleResourceBundleName="" TitleResourceBundleClassName="" TitleResourceBundleRelativePath="">
+      <Icons/>
     </AlternateEntryPoint>
   </AlternateEntryPoints>
 </Properties>
