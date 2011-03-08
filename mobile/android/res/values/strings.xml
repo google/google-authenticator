@@ -19,10 +19,16 @@
     <string name="secret_saved">Secret saved</string>
     <string name="enter_pin">Enter this verification code if prompted during
     account sign-in:</string>
-    <string name="not_initialized">    
-    <![CDATA[Google Authenticator will generate verification codes that can be used to provide additional security when signing in.<br/>
-    <br/>
-    To use Google Authenticator, first enable <a href="https://www.google.com/support/mobile/bin/answer.py?hl=en&amp;answer=180368">two-step verification</a> for your Google Account. Then scan your account information via barcode or enter it manually:]]>
+    <string name="not_initialized">
+      <![CDATA[
+        Google Authenticator will generate verification codes that 
+        can be used to provide additional security when signing in.
+        <br/>
+        <br/>
+        Google Authenticator must be used along with the
+        2-step verification
+        feature for your Google Account.
+      ]]>
     </string>
     <string name="check_code_title">Integrity check value</string>
     <string name="check_code_menu_item">Check key value</string>

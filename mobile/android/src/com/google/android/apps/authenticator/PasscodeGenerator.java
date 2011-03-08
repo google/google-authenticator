@@ -27,7 +27,7 @@ public class PasscodeGenerator {
   private static final int PASS_CODE_LENGTH = 6;
 
   /** Default passcode timeout period (in seconds) */
-  private static final int INTERVAL = 30;
+  static final int INTERVAL = 30;
 
   /** The number of previous and future intervals to check */
   private static final int ADJACENT_INTERVALS = 1;

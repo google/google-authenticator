@@ -84,18 +84,12 @@ public class EnterKeyActivity extends Activity implements OnClickListener,
         mStatusText.setTextColor(Color.RED);
         return false;
       } else {
-        String checkCode =
-          CheckCodeActivity.getCheckCode(userEnteredKey);
-        mStatusText.setText(getString(R.string.enter_key_check) + checkCode);
+        mStatusText.setText("");  // Blank out the status.
         mStatusText.setTextColor(Color.WHITE);
         return true;
       }
     } catch (DecodingException e) {
       mStatusText.setText(e.getMessage());
-      mStatusText.setTextColor(Color.RED);
-      return false;
-    } catch (GeneralSecurityException e) {
-      mStatusText.setText(getString(R.string.enter_key_problem));
       mStatusText.setTextColor(Color.RED);
       return false;
     }

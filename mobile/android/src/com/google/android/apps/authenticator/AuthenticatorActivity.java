@@ -15,6 +15,7 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.Vibrator;
 import android.text.ClipboardManager;
 import android.text.Html;
@@ -64,7 +65,11 @@ public class AuthenticatorActivity extends Activity implements OnClickListener {
   private PinInfo[] mUsers = {};
   private Button mScanBarcodeButton;
   private Button mEnterKeyButton;
-  private LinearLayout mButtonsLayout; 
+  private LinearLayout mButtonsLayout;
+  private Handler mHandler;
+
+  private Runnable mRefreshTask;
+
   public static boolean mAccessibilityAvailable;
   private static String mVersion;
   
@@ -99,6 +104,10 @@ public class AuthenticatorActivity extends Activity implements OnClickListener {
   private static final String PRIVACY_URI =
     "http://www.google.com/mobile/privacy.html";
   
+  // Based on default OTP interval, but set to update more frequently to avoid stale codes.
+  private static final int REFRESH_INTERVAL_SEC = PasscodeGenerator.INTERVAL / 3;
+  
+  
   /** Called when the activity is first created. */
   @Override
   public void onCreate(Bundle savedInstanceState) {
@@ -132,7 +141,7 @@ public class AuthenticatorActivity extends Activity implements OnClickListener {
     }
     mUserList.setAdapter(mUserAdapter);
     mUserList.setOnItemClickListener(new OnItemClickListener(){
-        @Override
+    	@Override
         public void onItemClick(AdapterView<?> arg0, View row, int arg2, long arg3) {
             OnButtonClickListener clickListener = (OnButtonClickListener) row.getTag();
             Button nextOtp = (Button) row.findViewById(R.id.next_otp);
@@ -147,11 +156,14 @@ public class AuthenticatorActivity extends Activity implements OnClickListener {
     });
 
     try {
-      mVersion = 
+      mVersion =
         getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
     } catch (NameNotFoundException e) {
       mVersion = "Unknown";
     }
+
+    // Create the handler used for processing refresh tasks.
+    mHandler = new Handler();
   }
 
   @Override
@@ -173,7 +185,31 @@ public class AuthenticatorActivity extends Activity implements OnClickListener {
       setIntent(new Intent());
     }
 
-    refreshUserList();
+    // Schedule the automatic refresh task.
+    Runnable task = new Runnable() {
+      @Override
+      public void run() {
+        // This task perpetuates itself by scheduling for another round of
+        // execution using the same handler on main activity.
+        // Before continuing execution, we verify that it is still current
+        // for the activity-- if the activity is stopped/restarted,
+        // a task object will scheduled and this one allowed to expire.
+        if (mRefreshTask == this) {
+          AuthenticatorActivity.this.refreshUserList();
+          mHandler.postDelayed(this, REFRESH_INTERVAL_SEC * 1000);
+        }        
+      }
+    };
+
+    // Kick-start the refresh loop by running the task once.
+    mRefreshTask = task;
+    mRefreshTask.run();
+  }
+
+  @Override
+  protected void onPause() {
+    super.onPause();  // Required by Android.
+    mRefreshTask = null;
   }
 
   /** Display list of user emails and updated pin codes. */
@@ -359,9 +395,9 @@ public class AuthenticatorActivity extends Activity implements OnClickListener {
       if (path != null && path.length() > 1) {
         user = path.substring(1); // path is "/user", so remove leading /
       }
-      
+
       secret = uri.getQueryParameter(SECRET_PARAM);
-   // TODO(adhintz) remove TOTP scheme here and in AndroidManifest.xml
+    // TODO(adhintz) remove TOTP scheme here and in AndroidManifest.xml
     } else if (TOTP.equals(scheme)) {
       if (authority != null) {
         user = authority;
@@ -431,7 +467,10 @@ public class AuthenticatorActivity extends Activity implements OnClickListener {
     OtpType type = AccountDb.getType(user);
     menu.setHeaderTitle(user);
     menu.add(0, COPY_TO_CLIPBOARD_ID, 0, R.string.copy_to_clipboard);
-    menu.add(0, CHECK_KEY_VALUE_ID, 0, R.string.check_code_menu_item);
+    // Option to display the check-code is only available for HOTP accounts.
+    if (type == OtpType.HOTP) {
+      menu.add(0, CHECK_KEY_VALUE_ID, 0, R.string.check_code_menu_item);
+    }
     menu.add(0, RENAME_ID, 0, R.string.rename);
     menu.add(0, DELETE_ID, 0, R.string.delete);
   }
@@ -474,6 +513,7 @@ public class AuthenticatorActivity extends Activity implements OnClickListener {
           .setIcon(android.R.drawable.ic_dialog_alert)
           .setPositiveButton(R.string.ok,
               new DialogInterface.OnClickListener() {
+                @Override
                 public void onClick(DialogInterface dialog, int whichButton) {
                   AccountDb.delete(user);
                   refreshUserList();
@@ -491,6 +531,7 @@ public class AuthenticatorActivity extends Activity implements OnClickListener {
   DialogInterface.OnClickListener getRenameClickListener(final Context context,
       final String user, final EditText nameEdit) {
     return new DialogInterface.OnClickListener() {
+      @Override
       public void onClick(DialogInterface dialog, int whichButton) {
         String newName = nameEdit.getText().toString();
         if (newName != user) {
@@ -571,6 +612,7 @@ public class AuthenticatorActivity extends Activity implements OnClickListener {
     }
   }
   
+  @Override
   public void onClick(View view) {
     if (view == mScanBarcodeButton) {
       this.scanBarcode();
@@ -604,6 +646,7 @@ public class AuthenticatorActivity extends Activity implements OnClickListener {
       .setIcon(android.R.drawable.ic_dialog_alert)
       .setPositiveButton(R.string.install_button,
           new DialogInterface.OnClickListener() {
+            @Override
             public void onClick(DialogInterface dialog, int whichButton) {
               Intent intent = new Intent(Intent.ACTION_VIEW, 
                                          Uri.parse(ZXING_MARKET));
