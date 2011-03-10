@@ -23,13 +23,18 @@ test: pam_google_authenticator_unittest
 	./pam_google_authenticator_unittest
 
 install: all
-	@echo cp pam_google_authenticator.so /lib/security
-	@tar fc - pam_google_authenticator.so | sudo tar ofxC - /lib/security
-	@
-	@echo cp google-authenticator /usr/local/bin
-	@tar fc - google-authenticator | sudo tar ofxC - /usr/local/bin
-	sudo chmod 755 /lib/security/pam_google_authenticator.so              \
-	       /usr/local/bin/google-authenticator
+	@dst=/lib$$([ -d /lib64/security ] && echo 64)/security;              \
+	sudo=; if [ $$(id -u) -ne 0 ]; then                                   \
+	  echo "You need to be root to install this module. Invoking sudo:";  \
+	  sudo=sudo;                                                          \
+	fi;                                                                   \
+	echo cp pam_google_authenticator.so $${dst};                          \
+	tar fc - pam_google_authenticator.so | $${sudo} tar ofxC - $${dst};   \
+	                                                                      \
+	echo cp google-authenticator /usr/local/bin;                          \
+	tar fc - google-authenticator | $${sudo} tar ofxC - /usr/local/bin;   \
+	$${sudo} chmod 755 $${dst}/pam_google_authenticator.so                \
+	                   /usr/local/bin/google-authenticator
 
 clean:
 	$(RM) *.o *.so google-authenticator pam_google_authenticator_unittest
@@ -37,7 +42,8 @@ clean:
 google-authenticator: google-authenticator.o base32.o hmac.o sha1.o
 	$(CC) -g $(LDFLAGS) -ldl -o $@ $+
 
-pam_google_authenticator_unittest: pam_google_authenticator_unittest.o base32.o
+pam_google_authenticator_unittest: pam_google_authenticator_unittest.o       \
+                                   base32.o hmac.o sha1.o
 	$(CC) -g $(LDFLAGS) -rdynamic -ldl -lc -o $@ $+
 
 pam_google_authenticator.so: base32.o hmac.o sha1.o
@@ -48,7 +54,7 @@ pam_google_authenticator_testing.o: pam_google_authenticator.c base32.h       \
                                     hmac.h sha1.h
 	$(CC) -DTESTING --std=gnu99 -Wall -O2 -g -fPIC -c $(CFLAGS) -o $@ $<
 pam_google_authenticator_unittest.o: pam_google_authenticator_unittest.c      \
-                                     pam_google_authenticator_testing.so \
+                                     pam_google_authenticator_testing.so      \
                                      base32.h hmac.h sha1.h
 google-authenticator.o: google-authenticator.c base32.h hmac.h sha1.h
 base32.o: base32.c base32.h

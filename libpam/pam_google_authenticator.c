@@ -16,6 +16,7 @@
 // limitations under the License.
 
 #define _GNU_SOURCE
+#include <errno.h>
 #include <fcntl.h>
 #include <pwd.h>
 #include <stdarg.h>
@@ -170,7 +171,7 @@ static int open_secret_file(pam_handle_t *pamh, const char *secret_filename,
   }
 
   // Sanity check for file length
-  if (sb.st_size < 1 || sb.st_size > 1024) {
+  if (sb.st_size < 1 || sb.st_size > 64*1024) {
     log_message(LOG_ERR, pamh,
                 "Invalid file size for \"%s\"", secret_filename);
     goto error;
@@ -215,7 +216,7 @@ static int is_totp(const char *buf) {
 }
 
 static int write_file_contents(pam_handle_t *pamh, const char *secret_filename,
-                               off_t old_size, time_t old_mtime,
+                               off_t *old_size, time_t *old_mtime,
                                const char *buf) {
   // Safely overwrite the old secret file.
   char *tmp_filename = malloc(strlen(secret_filename) + 2);
@@ -237,8 +238,8 @@ static int write_file_contents(pam_handle_t *pamh, const char *secret_filename,
   // scratch code multiple times.
   struct stat sb;
   if (stat(secret_filename, &sb) != 0 ||
-      sb.st_size != old_size ||
-      sb.st_mtime != old_mtime) {
+      sb.st_size != *old_size ||
+      sb.st_mtime != *old_mtime) {
     log_message(LOG_ERR, pamh,
                 "Secret file \"%s\" changed while trying to use "
                 "scratch code\n", secret_filename);
@@ -258,6 +259,12 @@ static int write_file_contents(pam_handle_t *pamh, const char *secret_filename,
   }
 
   free(tmp_filename);
+  if (fstat(fd, &sb)) {
+    close(fd);
+    goto removal_failure;
+  }
+  *old_size = sb.st_size;
+  *old_mtime = sb.st_mtime;
   close(fd);
 
   return 0;
@@ -288,6 +295,156 @@ static uint8_t *get_shared_secret(pam_handle_t *pamh,
   return secret;
 }
 
+#ifdef TESTING
+static time_t current_time;
+void set_time(time_t t) {
+  current_time = t;
+}
+
+static time_t get_time(void) {
+  return current_time;
+}
+#else
+static time_t get_time(void) {
+  return time(NULL);
+}
+#endif
+
+static int get_timestamp(void) {
+  return get_time()/30;
+}
+
+static int comparator(const void *a, const void *b) {
+  return *(unsigned int *)a - *(unsigned int *)b;
+}
+
+static int rate_limit(pam_handle_t *pamh, const char *secret_filename,
+                      off_t *old_size, time_t *old_mtime, char **buf) {
+  static const char key[] = "\" RATE_LIMIT";
+  char *value = strstr(*buf, key);
+  if (!value) {
+    // Rate limiting is not enabled for this account
+    return 0;
+  }
+
+  // Parse both the maximum number of login attempts and the time interval
+  // that we are looking at.
+  char *endptr = value + sizeof(key) - 1;
+  int attempts, interval;
+  errno = 0;
+  if ((*endptr != ' ' && *endptr != '\t') ||
+      ((attempts = (int)strtoul(endptr, &endptr, 10)) < 1) ||
+      attempts > 100 ||
+      errno ||
+      (*endptr != ' ' && *endptr != '\t') ||
+      ((interval = (int)strtoul(endptr, &endptr, 10)) < 1) ||
+      interval > 3600 ||
+      errno) {
+    log_message(LOG_ERR, pamh, "Invalid RATE_LIMIT option. Check \"%s\".",
+                secret_filename);
+    return -1;
+  }
+
+  // Parse the time stamps of all previous login attempts.
+  char *ts_ptr = endptr;
+  unsigned int now = get_time();
+  unsigned int *timestamps = malloc(sizeof(int));
+  if (!timestamps) {
+  oom:
+    log_message(LOG_ERR, pamh, "Out of memory!");
+    return -1;
+  }
+  timestamps[0] = now;
+  int num_timestamps = 1;
+  while (*endptr && *endptr != '\r' && *endptr != '\n') {
+    unsigned int timestamp;
+    errno = 0;
+    if ((*endptr != ' ' && *endptr != '\t') ||
+        ((timestamp = (int)strtoul(endptr, &endptr, 10)), errno)) {
+      free(timestamps);
+      log_message(LOG_ERR, pamh, "Invalid list of timestamps in RATE_LIMIT. "
+                  "Check \"%s\".", secret_filename);
+      return -1;
+    }
+    num_timestamps++;
+    unsigned int *tmp = (unsigned int *)realloc(timestamps,
+                                                sizeof(int) * num_timestamps);
+    if (!tmp) {
+      free(timestamps);
+      goto oom;
+    }
+    timestamps = tmp;
+    timestamps[num_timestamps-1] = timestamp;
+  }
+
+  // Sort time stamps, then prune all entries outside of the current time
+  // interval.
+  qsort(timestamps, num_timestamps, sizeof(int), comparator);
+  int start = 0, stop = -1;
+  for (int i = 0; i < num_timestamps; ++i) {
+    if (timestamps[i] < now - interval) {
+      start = i+1;
+    } else if (timestamps[i] > now) {
+      break;
+    }
+    stop = i;
+  }
+
+  // Error out, if there are too many login attempts.
+  int exceeded = 0;
+  if (stop - start + 1 > attempts) {
+    exceeded = 1;
+    start = stop - attempts + 1;
+  }
+
+  // Construct new list of timestamps within the current time interval.
+  char *list = malloc(25 * (stop - start + 1) + 2);
+  if (!list) {
+    free(timestamps);
+    goto oom;
+  }
+  char *prnt = list;
+  list[0] = ' ';
+  list[1] = '\000';
+  for (int i = start; i <= stop; ++i) {
+    prnt += sprintf(prnt, " %u", timestamps[i]);
+  }
+  free(timestamps);
+
+  // Resize buffer and set newly updated RATE_LIMIT option.
+  char *resized = malloc(strlen(*buf) + strlen(list) + 1);
+  if (!resized) {
+    free(list);
+    goto oom;
+  }
+  memcpy(resized, *buf, ts_ptr - *buf);
+  size_t len = strlen(list);
+  memcpy(memcpy(resized + (ts_ptr - *buf), list, len) + len,
+         endptr, strlen(endptr) + 1);
+  free(list);
+  memset(*buf, 0, strlen(*buf));
+  free(*buf);
+  *buf = resized;
+
+  // Write the updated configuration file.
+  if (write_file_contents(pamh, secret_filename,
+                          old_size, old_mtime, *buf) < 0) {
+    // Couldn't update list of timestamp. Deny access.
+    log_message(LOG_ERR, pamh, "Failed to update state file \"%s\".",
+                secret_filename);
+    return -1;
+  }
+
+  // If necessary, notify the user of the rate limiting that is in effect.
+  if (exceeded) {
+    log_message(LOG_ERR, pamh,
+                "Too many concurrent login attempts. Please try again.");
+    return -1;
+  }
+
+  return 0;
+}
+
 static int request_verification_code(pam_handle_t *pamh) {
   // Query user for verification code
   const struct pam_message msg = { .msg_style = PAM_PROMPT_ECHO_OFF,
@@ -297,9 +454,11 @@ static int request_verification_code(pam_handle_t *pamh) {
   int retval = converse(pamh, 1, &msgs, &resp);
   int code = -1;
   char *endptr = NULL;
+  errno = 0;
   if (retval != PAM_SUCCESS || resp == NULL || resp[0].resp == NULL ||
       *resp[0].resp == '\000' ||
-      ((code = strtoul(resp[0].resp, &endptr, 10)), *endptr)) {
+      ((code = (int)strtoul(resp[0].resp, &endptr, 10)), *endptr) ||
+      errno) {
     log_message(LOG_ERR, pamh, "Did not receive verification code from user");
     code = -1;
   }
@@ -321,7 +480,7 @@ static int request_verification_code(pam_handle_t *pamh) {
  * applied.
  */
 static int check_scratch_codes(pam_handle_t *pamh, const char *secret_filename,
-                               off_t old_size, time_t old_mtime,
+                               off_t *old_size, time_t *old_mtime,
                                char *buf, int code) {
   // Skip the first line. It contains the shared secret.
   char *ptr = buf + strcspn(buf, "\n");
@@ -341,12 +500,14 @@ static int check_scratch_codes(pam_handle_t *pamh, const char *secret_filename,
     }
 
     // Try to interpret the line as a scratch code
-    int scratchcode = strtoul(ptr, &endptr, 10);
+    errno = 0;
+    int scratchcode = (int)strtoul(ptr, &endptr, 10);
 
     // Sanity check that we read a valid scratch code. Scratchcodes are all
     // numeric eight-digit codes. There must not be any other information on
     // that line.
-    if (ptr == endptr ||
+    if (errno ||
+        ptr == endptr ||
         (*endptr != '\r' && *endptr != '\n' && *endptr) ||
         scratchcode < 10*1000*1000) {
       break;
@@ -373,20 +534,29 @@ static int check_scratch_codes(pam_handle_t *pamh, const char *secret_filename,
   return 1;
 }
 
-#ifdef TESTING
-static int timestamp;
-void set_timestamp(int ts) {
-  timestamp = ts;
+static int window_size(pam_handle_t *pamh, const char *secret_filename,
+                       const char *buf) {
+  static const char key[] = "\" WINDOW_SIZE";
+  const char *value = strstr(buf, key);
+  if (!value) {
+    // Default window size is 3. This gives us one 30s window before and
+    // after the current one.
+    return 3;
+  }
+  value += sizeof(key) - 1;
+  char *endptr;
+  errno = 0;
+  int window = (int)strtoul(value, &endptr, 10);
+  if (errno || !*value || value == endptr ||
+      (*endptr && *endptr != ' ' && *endptr != '\t' &&
+       *endptr != '\n' && *endptr != '\r') ||
+      window < 1 || window > 100) {
+    log_message(LOG_ERR, pamh, "Invalid WINDOW_SIZE option in \"%s\"",
+                secret_filename);
+    return 0;
+  }
+  return window;
 }
-
-static int get_timestamp() {
-  return timestamp;
-}
-#else
-static int get_timestamp() {
-  return time(NULL)/30;
-}
-#endif
 
 /* If the DISALLOW_REUSE option has been set, record timestamps have been
  * used to log in successfully and disallow their reuse.
@@ -395,7 +565,7 @@ static int get_timestamp() {
  */
 static int invalidate_timebased_code(int tm, pam_handle_t *pamh,
                                      const char *secret_filename,
-                                     off_t old_size, time_t old_mtime,
+                                     off_t *old_size, time_t *old_mtime,
                                      char **buf) {
   char *disallow = strstr(*buf, "\" DISALLOW_REUSE");
   if (!disallow) {
@@ -412,14 +582,17 @@ static int invalidate_timebased_code(int tm, pam_handle_t *pamh,
     if (*ptr == '\r' || *ptr == '\n') {
       break;
     }
+    ptr += strspn(ptr, " \t");
 
     // Parse timestamp value.
     char *endptr;
-    int blocked = strtoul(ptr, &endptr, 10);
+    errno = 0;
+    int blocked = (int)strtoul(ptr, &endptr, 10);
 
     // Stop checking as soon as we reach the end of the line, or when we read
     // a syntactically invalid entry.
-    if (ptr == endptr ||
+    if (errno ||
+        ptr == endptr ||
         (*endptr != ' ' && *endptr != '\t' &&
          *endptr != '\r' && *endptr != '\n' && *endptr)) {
       break;
@@ -437,7 +610,13 @@ static int invalidate_timebased_code(int tm, pam_handle_t *pamh,
 
     // If the blocked code is outside of the possible window of timestamps,
     // remove it from the file.
-    if (blocked - tm > 3 || tm - blocked > 3) {
+    int window = window_size(pamh, secret_filename, *buf);
+    if (!window) {
+      // The user configured a non-standard window size, but there was some
+      // error with the value of this parameter.
+      return -1;
+    }
+    if (blocked - tm >= window || tm - blocked >= window) {
       endptr += strspn(endptr, " \t");
       memmove(ptr, endptr, strlen(endptr) + 1);
       memset(strrchr(ptr, '\000'), 0, endptr - ptr + 1);
@@ -461,6 +640,7 @@ static int invalidate_timebased_code(int tm, pam_handle_t *pamh,
   }
   ptr += sprintf(ptr, "%d", tm);
   memcpy(ptr, orig, strlen(orig) + 1);
+  memset(*buf, 0, strlen(*buf));
   free(*buf);
   *buf = resized;
 
@@ -475,13 +655,39 @@ static int invalidate_timebased_code(int tm, pam_handle_t *pamh,
   return 0;
 }
 
+/* Given an input value, this function computes the hash code that forms the
+ * expected authentication token.
+ */
+#ifndef TESTING
+static
+#endif
+int compute_code(const uint8_t *secret, int secretLen, unsigned long value) {
+  uint8_t val[8];
+  for (int i = 8; i--; value >>= 8) {
+    val[i] = value;
+  }
+  uint8_t hash[SHA1_DIGEST_LENGTH];
+  hmac_sha1(secret, secretLen, val, 8, hash, SHA1_DIGEST_LENGTH);
+  memset(val, 0, sizeof(val));
+  int offset = hash[SHA1_DIGEST_LENGTH - 1] & 0xF;
+  unsigned int truncatedHash = 0;
+  for (int i = 0; i < 4; ++i) {
+    truncatedHash <<= 8;
+    truncatedHash  |= hash[offset + i];
+  }
+  memset(hash, 0, sizeof(hash));
+  truncatedHash &= 0x7FFFFFFF;
+  truncatedHash %= 1000000;
+  return truncatedHash;
+}
+
 /* Checks for time based verification code. Returns -1 on error, 0 on success,
  * and 1, if no time based code had been entered, and subsequent tests should
  * be applied.
  */
 static int check_timebased_code(pam_handle_t *pamh,
                                 const char *secret_filename,
-                                off_t old_size, time_t old_mtime, char **buf,
+                                off_t *old_size, time_t *old_mtime, char **buf,
                                 const uint8_t *secret, int secretLen,
                                 int code) {
   if (!is_totp(*buf)) {
@@ -498,24 +704,13 @@ static int check_timebased_code(pam_handle_t *pamh,
 
   // Compute verification codes and compare them with user input
   int tm = get_timestamp();
-  for (int i = -1; i <= 1; ++i) {
-    uint8_t challenge[8];
-    unsigned long chlg = tm + i;
-    for (int j = 8; j--; chlg >>= 8) {
-      challenge[j] = chlg;
-    }
-    uint8_t hash[SHA1_DIGEST_LENGTH];
-    hmac_sha1(secret, secretLen, challenge, 8, hash, SHA1_DIGEST_LENGTH);
-    int offset = hash[SHA1_DIGEST_LENGTH - 1] & 0xF;
-    unsigned int truncatedHash = 0;
-    for (int j = 0; j < 4; ++j) {
-      truncatedHash <<= 8;
-      truncatedHash  |= hash[offset + j];
-    }
-    memset(hash, 0, sizeof(hash));
-    truncatedHash &= 0x7FFFFFFF;
-    truncatedHash %= 1000000;
-    if (truncatedHash == (unsigned int)code) {
+  int window = window_size(pamh, secret_filename, *buf);
+  if (!window) {
+    return 1;
+  }
+  for (int i = -((window-1)/2); i <= window/2; ++i) {
+    unsigned int hash = compute_code(secret, secretLen, tm + i);
+    if (hash == (unsigned int)code) {
       return invalidate_timebased_code(tm + i, pamh, secret_filename,
                                        old_size, old_mtime, buf);
     }
@@ -544,12 +739,13 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
                              &filesize, &mtime)) >= 0 &&
       (buf = read_file_contents(pamh, secret_filename, fd, filesize)) &&
       (secret = get_shared_secret(pamh, secret_filename, buf, &secretLen)) &&
+      (rate_limit(pamh, secret_filename, &filesize, &mtime, &buf) >= 0) &&
       (code = request_verification_code(pamh)) >= 0) {
     // Check all possible types of verification codes.
-    switch (check_scratch_codes(pamh, secret_filename, filesize, mtime,
+    switch (check_scratch_codes(pamh, secret_filename, &filesize, &mtime,
                                 buf, code)) {
       case 1:
-        switch (check_timebased_code(pamh, secret_filename, filesize, mtime,
+        switch (check_timebased_code(pamh, secret_filename, &filesize, &mtime,
                                      &buf, secret, secretLen, code)) {
           case 0:
             rc = PAM_SUCCESS;

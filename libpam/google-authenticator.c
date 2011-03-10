@@ -258,6 +258,26 @@ static void displayQRCode(const char *secret) {
   free(encoderURL);
 }
 
+static char *maybeAddOption(const char *msg, char *buf, size_t nbuf,
+                            const char *option) {
+  printf("\n%s (y/n) ", msg);
+  fflush(stdout);
+  char ch;
+  do {
+    ch = getchar();
+  } while (ch == ' ' || ch == '\r' || ch == '\n');
+  if (ch == 'y' || ch == 'Y') {
+    assert(strlen(buf) + strlen(option) < nbuf);
+    char *scratchCodes = strchr(buf, '\n');
+    assert(scratchCodes);
+    scratchCodes++;
+    memmove(scratchCodes + strlen(option), scratchCodes,
+            strlen(scratchCodes) + 1);
+    memcpy(scratchCodes, option, strlen(option));
+  }
+  return buf;
+}
+
 int main(int argc, char *argv[]) {
   int fd = open("/dev/urandom", O_RDONLY);
   if (fd < 0) {
@@ -265,12 +285,16 @@ int main(int argc, char *argv[]) {
     return 1;
   }
   uint8_t buf[SECRET_BITS/8 + SCRATCHCODES*BYTES_PER_SCRATCHCODE];
-  static const char totp[]     = "\" TOTP_AUTH\n";
-  static const char disallow[] = "\" DISALLOW_REUSE\n";
+  static const char totp[]      = "\" TOTP_AUTH\n";
+  static const char disallow[]  = "\" DISALLOW_REUSE\n";
+  static const char window[]    = "\" WINDOW_SIZE 17\n";
+  static const char ratelimit[] = "\" RATE_LIMIT 3 30\n";
   char    secret[(SECRET_BITS + BITS_PER_BASE32_CHAR-1)/BITS_PER_BASE32_CHAR +
                  1 /* newline */ +
                  sizeof(totp) +
                  sizeof(disallow) +
+                 sizeof(window) +
+                 sizeof(ratelimit) +
                  SCRATCHCODE_LENGTH*(SCRATCHCODES + 1 /* newline */) +
                  1 /* NUL termination character */];
   if (read(fd, buf, sizeof(buf)) != sizeof(buf)) {
@@ -334,23 +358,26 @@ int main(int argc, char *argv[]) {
     memcpy(tmp_fn, fn, strlen(fn));
     tmp_fn[-1] = '\000';
 
-    // Add optional flag requesting that the PAM module prevents reuse of
-    // authentication tokens.
-    printf("\nDo you want to disallow multiple uses of the same "
-           "authentication\ntoken? This restricts you to one login about "
-           "every 30s, but it increases\nyour chances to notice or even "
-           "prevent man-in-the-middle attacks (y/n) ");
-    fflush(stdout);
-    do {
-      ch = getchar();
-    } while (ch == ' ' || ch == '\r' || ch == '\n');
-    if (ch == 'y' || ch == 'Y') {
-      assert(strlen(secret) + sizeof(disallow) <= sizeof(secret));
-      char *scratchCodes = strchr(secret, '\n') + 1;
-      memmove(scratchCodes + sizeof(disallow) - 1, scratchCodes,
-              strlen(scratchCodes) + 1);
-      memcpy(scratchCodes, disallow, sizeof(disallow)-1);
-    }
+    // Add optional flags.
+    maybeAddOption("Do you want to disallow multiple uses of the same "
+                   "authentication\ntoken? This restricts you to one login "
+                   "about every 30s, but it increases\nyour chances to notice "
+                   "or even prevent man-in-the-middle attacks",
+                   secret, sizeof(secret), disallow);
+    maybeAddOption("By default, tokens are good for 30 seconds and in order "
+                   "to compensate for\npossible time-skew between the client "
+                   "and the server, we allow an extra\ntoken before and after "
+                   "the current time. If you experience problems with poor\n"
+                   "time synchronization, you can increase the window from "
+                   "its default\nsize of 1:30min to about 4min. Do you want "
+                   "to do so",
+                   secret, sizeof(secret), window);
+    maybeAddOption("If the computer that you are logging into isn't hardened "
+                   "against brute-force\nlogin attempts, you can enable "
+                   "rate-limiting for the authentication module.\nBy default, "
+                   "this limits attackers to no more than 3 login attempts "
+                   "every 30s.\nDo you want to enable rate-limiting",
+                   secret, sizeof(secret), ratelimit);
 
     fd = open(tmp_fn, O_WRONLY|O_EXCL|O_CREAT|O_NOFOLLOW|O_TRUNC, 0400);
     if (fd < 0) {
