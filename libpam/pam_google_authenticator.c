@@ -23,12 +23,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/fsuid.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <syslog.h>
 #include <time.h>
 #include <unistd.h>
+
+#ifdef linux
+// We much rather prefer to use setfsuid(), but this function is unfortunately
+// not available on all systems.
+#include <sys/fsuid.h>
+#define HAS_SETFSUID
+#endif
 
 #define PAM_SM_AUTH
 #define PAM_SM_SESSION
@@ -130,13 +136,21 @@ static char *get_secret_filename(pam_handle_t *pamh, const char *username,
 }
 #endif
 
+static int setuser(int uid) {
+#ifdef HAS_SETFSUID
+  return setfsuid(uid);
+#else
+  return seteuid(uid);
+#endif
+}
+
 static int drop_privileges(pam_handle_t *pamh, const char *username, int uid) {
   // Try to become the new user. This might be necessary for NFS mounted home
   // directories.
-  int old_uid = setfsuid(uid);
-  if (uid != setfsuid(uid)) {
+  int old_uid = setuser(uid);
+  if (uid != setuser(uid)) {
     log_message(LOG_ERR, pamh, "Failed to change user id to \"%s\"", username);
-    setfsuid(old_uid);
+    setuser(old_uid);
     return -1;
   }
   return old_uid;
@@ -780,7 +794,7 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
     close(fd);
   }
   if (old_uid >= 0) {
-    setfsuid(old_uid);
+    setuser(old_uid);
   }
   free(secret_filename);
   return rc;
