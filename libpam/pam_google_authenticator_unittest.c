@@ -20,6 +20,7 @@
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <security/pam_modules.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,7 +31,14 @@
 #include "base32.h"
 #include "hmac.h"
 
+#if !defined(PAM_BAD_ITEM)
+// FreeBSD does not know about PAM_BAD_ITEM. And PAM_SYMBOL_ERR is an "enum",
+// we can't test for it at compile-time.
+#define PAM_BAD_ITEM PAM_SYMBOL_ERR
+#endif
+
 static char *response = "";
+static void *pam_module;
 
 static int conversation(int num_msg, const struct pam_message **msg,
                         struct pam_response **resp, void *appdata_ptr) {
@@ -64,6 +72,15 @@ int pam_get_item(const pam_handle_t *pamh, int item_type, const void **item) {
     default:
       return PAM_BAD_ITEM;
   }
+}
+
+void print_diagnostics(int signo) {
+  const char *(*get_error_msg)(void) =
+    (const char *(*)(void))dlsym(pam_module, "get_error_msg");
+  if (get_error_msg && *get_error_msg()) {
+    fprintf(stderr, "%s\n", get_error_msg());
+  }
+  _exit(1);
 }
 
 int main(int argc, char *argv[]) {
@@ -127,11 +144,12 @@ int main(int argc, char *argv[]) {
 
   // Load the PAM module
   puts("Loading PAM module");
-  void *pam_module = dlopen("./pam_google_authenticator_testing.so",
-                            RTLD_LAZY | RTLD_GLOBAL);
+  pam_module = dlopen("./pam_google_authenticator_testing.so",
+                      RTLD_LAZY | RTLD_GLOBAL);
+  assert(pam_module != NULL);
+  signal(SIGABRT, print_diagnostics);
 
   // Look up public symbols
-  assert(pam_module != NULL);
   int (*pam_sm_open_session)(pam_handle_t *, int, int, const char **) =
       (int (*)(pam_handle_t *, int, int, const char **))
       dlsym(pam_module, "pam_sm_open_session");

@@ -41,10 +41,14 @@
  *****************************************************************************
 */
 #define _BSD_SOURCE
-#include <endian.h>
+#include <sys/types.h> // Defines BYTE_ORDER, iff _BSD_SOURCE is defined
 #include <string.h>
 
 #include "sha1.h"
+
+#ifndef BYTE_ORDER
+#error Need to define BYTE_ORDER
+#endif
 
 #ifndef TRUNC32
   #define TRUNC32(x)  ((x) & 0xffffffffL)

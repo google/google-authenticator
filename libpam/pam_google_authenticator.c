@@ -47,6 +47,14 @@
 #define MODULE_NAME "pam_google_authenticator"
 #define SECRET      "/.google_authenticator"
 
+#ifdef TESTING
+static char last_error_msg[128];
+
+const char *get_error_msg(void) {
+  return last_error_msg;
+}
+#endif
+
 static void log_message(int priority, pam_handle_t *pamh,
                         const char *format, ...) {
   char *service = NULL;
@@ -60,11 +68,16 @@ static void log_message(int priority, pam_handle_t *pamh,
 
   va_list args;
   va_start(args, format);
+#ifndef TESTING
   openlog(logname, LOG_CONS | LOG_PID, LOG_AUTHPRIV);
   vsyslog(priority, format, args);
+  closelog();
+#else
+  vsnprintf(last_error_msg, sizeof(last_error_msg), format, args);
+#endif
+
   va_end(args);
 
-  closelog();
 }
 
 static int converse(pam_handle_t *pamh, int nargs,
@@ -140,7 +153,7 @@ static int setuser(int uid) {
 #ifdef HAS_SETFSUID
   return setfsuid(uid);
 #else
-  return seteuid(uid);
+  return seteuid(uid) ? -1 : geteuid();
 #endif
 }
 
@@ -744,6 +757,10 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
   uint8_t    *secret = NULL;
   int        secretLen = 0;
   int        code = -1;
+
+#ifdef TESTING
+  *last_error_msg = '\000';
+#endif
 
   // Read and process status file, then ask the user for the verification code.
   if ((username = get_user_name(pamh)) &&

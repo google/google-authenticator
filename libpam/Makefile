@@ -24,9 +24,15 @@ test: pam_google_authenticator_unittest
 
 install: all
 	@dst=/lib$$([ -d /lib64/security ] && echo 64)/security;              \
+	[ -d "$${dst}" ] || dst=/usr/lib;                                     \
 	sudo=; if [ $$(id -u) -ne 0 ]; then                                   \
-	  echo "You need to be root to install this module. Invoking sudo:";  \
-	  sudo=sudo;                                                          \
+	  echo "You need to be root to install this module.";                 \
+	  if [ -x /usr/bin/sudo ]; then                                       \
+	    echo "Invoking sudo:";                                            \
+	    sudo=sudo;                                                        \
+	  else                                                                \
+	    exit 1;                                                           \
+	  fi;                                                                 \
 	fi;                                                                   \
 	echo cp pam_google_authenticator.so $${dst};                          \
 	tar fc - pam_google_authenticator.so | $${sudo} tar ofxC - $${dst};   \
@@ -40,11 +46,14 @@ clean:
 	$(RM) *.o *.so google-authenticator pam_google_authenticator_unittest
 
 google-authenticator: google-authenticator.o base32.o hmac.o sha1.o
-	$(CC) -g $(LDFLAGS) -ldl -o $@ $+
+	$(CC) -g $(LDFLAGS) $(shell [ -f /usr/lib/libdl.so ] && echo " -ldl") \
+	      -o $@ $+
 
-pam_google_authenticator_unittest: pam_google_authenticator_unittest.o       \
+pam_google_authenticator_unittest: pam_google_authenticator_unittest.o        \
                                    base32.o hmac.o sha1.o
-	$(CC) -g $(LDFLAGS) -rdynamic -ldl -lc -o $@ $+
+	$(CC) -g $(LDFLAGS) -rdynamic -lc                                     \
+              $(shell [ -f /usr/lib/libdl.so ] && echo " -ldl")               \
+              -o $@ $+
 
 pam_google_authenticator.so: base32.o hmac.o sha1.o
 pam_google_authenticator_testing.so: base32.o hmac.o sha1.o
