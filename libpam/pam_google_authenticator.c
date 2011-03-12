@@ -45,7 +45,11 @@
 #include "sha1.h"
 
 #define MODULE_NAME "pam_google_authenticator"
-#define SECRET      "/.google_authenticator"
+#define SECRET      "~/.google_authenticator"
+
+typedef struct Params {
+  const char *secret_filename_spec;
+} Params;
 
 #ifdef TESTING
 static char last_error_msg[128];
@@ -103,21 +107,14 @@ static const char *get_user_name(pam_handle_t *pamh) {
   return username;
 }
 
-#ifdef TESTING
-static char *secret_file_name;
-void set_secret_filename(char *fn) {
-  secret_file_name = fn;
-}
+static char *get_secret_filename(pam_handle_t *pamh, const Params *params,
+                                 const char *username, int *uid) {
+  // Check whether the administrator decided to override the default location
+  // for the secret file.
+  const char *spec = params->secret_filename_spec
+    ? params->secret_filename_spec : SECRET;
 
-static char *get_secret_filename(pam_handle_t *pamh, const char *username,
-                                 int *uid) {
-  *uid = getuid();
-  return strdup(secret_file_name);
-}
-#else
-static char *get_secret_filename(pam_handle_t *pamh, const char *username,
-                                 int *uid) {
-  // Obtain the user's home directory
+  // Obtain the user's id and home directory
   struct passwd pwbuf, *pw;
   #ifdef _SC_GETPW_R_SIZE_MAX
   int len = sysconf(_SC_GETPW_R_SIZE_MAX);
@@ -134,20 +131,62 @@ static char *get_secret_filename(pam_handle_t *pamh, const char *username,
       getpwnam_r(username, &pwbuf, buf, len, &pw) ||
       !pw ||
       !pw->pw_dir ||
-      *pw->pw_dir != '/' ||
-      !(secret_filename = malloc(strlen(pw->pw_dir) + strlen(SECRET) + 1))) {
-    log_message(LOG_ERR, pamh, "Failed to find home directory for user \"%s\"",
-                username);
+      *pw->pw_dir != '/') {
+  err:
+    log_message(LOG_ERR, pamh, "Failed to compute location of secret file");
     free(buf);
     free(secret_filename);
     return NULL;
   }
-  strcat(strcpy(secret_filename, pw->pw_dir), SECRET);
+
+  // Expand filename specification to an actual filename.
+  if ((secret_filename = strdup(spec)) == NULL) {
+    goto err;
+  }
+  int allow_tilde = 1;
+  for (int offset = 0; secret_filename[offset];) {
+    char *cur = secret_filename + offset;
+    char *var = NULL;
+    size_t var_len = 0;
+    const char *subst = NULL;
+    if (allow_tilde && *cur == '~') {
+      var_len = 1;
+      subst = pw->pw_dir;
+      var = cur;
+    } else if (secret_filename[offset] == '$') {
+      if (!memcmp(cur, "${HOME}", 7)) {
+        var_len = 7;
+        subst = pw->pw_dir;
+        var = cur;
+      } else if (!memcmp(cur, "${USER}", 7)) {
+        var_len = 7;
+        subst = username;
+        var = cur;
+      }
+    }
+    if (var) {
+      size_t subst_len = strlen(subst);
+      char *resized = realloc(secret_filename,
+                              strlen(secret_filename) + subst_len);
+      if (!resized) {
+        goto err;
+      }
+      var += resized - secret_filename;
+      secret_filename = resized;
+      memmove(var + subst_len, var + var_len, strlen(var + var_len) + 1);
+      memmove(var, subst, subst_len);
+      offset = var + subst_len - resized;
+      allow_tilde = 0;
+    } else {
+      allow_tilde = *cur == '/';
+      ++offset;
+    }
+  }
+
   free(buf);
   *uid = pw->pw_uid;
   return secret_filename;
 }
-#endif
 
 static int setuser(int uid) {
 #ifdef HAS_SETFSUID
@@ -745,6 +784,20 @@ static int check_timebased_code(pam_handle_t *pamh,
   return -1;
 }
 
+static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
+                      Params *params) {
+  for (int i = 0; i < argc; ++i) {
+    if (!memcmp(argv[i], "secret=", 7)) {
+      free((void *)params->secret_filename_spec);
+      params->secret_filename_spec = argv[i] + 7;
+    } else {
+      log_message(LOG_ERR, pamh, "Unrecognized option \"%s\"", argv[i]);
+      return -1;
+    }
+  }
+  return 0;
+}
+
 static int google_authenticator(pam_handle_t *pamh, int flags,
                                 int argc, const char **argv) {
   int        rc = PAM_SESSION_ERR;
@@ -762,9 +815,15 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
   *last_error_msg = '\000';
 #endif
 
+  // Handle optional arguments that configure our PAM module
+  Params params = { 0 };
+  if (parse_args(pamh, argc, argv, &params) < 0) {
+    return rc;
+  }
+
   // Read and process status file, then ask the user for the verification code.
   if ((username = get_user_name(pamh)) &&
-      (secret_filename = get_secret_filename(pamh, username, &uid)) &&
+      (secret_filename = get_secret_filename(pamh, &params, username, &uid)) &&
       (old_uid = drop_privileges(pamh, username, uid)) >= 0 &&
       (fd = open_secret_file(pamh, secret_filename, username, uid,
                              &filesize, &mtime)) >= 0 &&

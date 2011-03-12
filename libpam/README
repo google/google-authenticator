@@ -1,6 +1,7 @@
 Example PAM module demonstrating two-factor authentication.
 
-Build and install by running "make install".
+Build and install by running "make install". If you don't have access to
+"sudo", you have to manually become "root" prior to calling "make install".
 
 Then add this line to your PAM configuration file:
   auth required pam_google_authenticator.so
@@ -11,12 +12,25 @@ directory.
 If your system supports the "libqrencode" library, you will be shown a QRCode
 that you can scan using the Android "Google Authenticator" application.
 
-If your system does not have this library, you have to manually enter the
-alphanumeric secret key into the Android "Google Authenticator" application.
+If your system does not have this library, you can either follow the URL that
+"google-authenticator" outputs, or you have to manually enter the alphanumeric
+secret key into the Android "Google Authenticator" application.
 
 In either case, after you have added the key, click-and-hold until the context
-menu shows. Then check that the key's verification value matches.
+menu shows. Then check that the key's verification value matches (this feature
+might not be available in all builds of the Android application).
 
 Each time you log into your system, you will now be prompted for your
 TOTP code (timebased one-time-password) after having entered your normal user
 id and your normal UNIX account password.
+
+If your system encrypts home directories until after your users entered their
+password, you either have to re-arrange the entries in the PAM configuration
+file to decrypt the home directory prior to asking for the OTP code, or
+you have to store the secret file in a non-standard location:
+
+  auth required pam_google_authenticator.so secret=/var/unencrypted-home/${USER}/.google-authenticator
+
+would be a possible choice. Make sure to set appropriate permissions. You also
+have to tell your users to manually move their .google-authenticator file to
+this location.

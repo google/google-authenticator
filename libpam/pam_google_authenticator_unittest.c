@@ -156,9 +156,6 @@ int main(int argc, char *argv[]) {
   assert(pam_sm_open_session != NULL);
 
   // Look up private test-only API
-  void (*set_secret_filename)(char *) =
-      (void (*)(char *))dlsym(pam_module, "set_secret_filename");
-  assert(set_secret_filename);
   void (*set_time)(time_t t) =
       (void (*)(time_t))dlsym(pam_module, "set_time");
   assert(set_time);
@@ -178,23 +175,25 @@ int main(int argc, char *argv[]) {
   size_t binary_secret_len = base32_decode(secret, binary_secret,
                                            sizeof(binary_secret));
 
-  // Use the private test-only API to notify the PAM module where to find our
-  // file
-  set_secret_filename(fn);
+  // Set up test argc/argv parameters to let the PAM module know where to
+  // find our secret file
+  const char *targv[] = { malloc(strlen(fn) + 8), NULL };
+  strcat(strcpy((char *)targv[0], "secret="), fn);
+  int targc = sizeof(targv)/sizeof(char *)-1;
 
   // Set the timestamp that this test vector needs
   set_time(10000*30);
 
   // Check if we can log in when using a valid verification code
   puts("Testing failed login attempt");
-  assert(pam_sm_open_session(NULL, 0, 0, NULL) == PAM_SESSION_ERR);
+  assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
 
   // Set the response that we should send back to the authentication module
   response = "50548";
 
   // Check if we can log in when using a valid verification code
   puts("Testing successful login");
-  assert(pam_sm_open_session(NULL, 0, 0, NULL) == PAM_SUCCESS);
+  assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
 
   // Test the WINDOW_SIZE option
   puts("Testing WINDOW_SIZE option");
@@ -203,7 +202,7 @@ int main(int argc, char *argv[]) {
                             PAM_SESSION_ERR, PAM_SUCCESS };
        *tm >= 0;) {
     set_time(*tm++ * 30);
-    assert(pam_sm_open_session(NULL, 0, 0, NULL) == *res++);
+    assert(pam_sm_open_session(NULL, 0, targc, targv) == *res++);
   }
   assert(!chmod(fn, 0600));
   assert((fd = open(fn, O_APPEND | O_WRONLY)) >= 0);
@@ -214,18 +213,18 @@ int main(int argc, char *argv[]) {
                             PAM_SESSION_ERR, PAM_SUCCESS };
        *tm >= 0;) {
     set_time(*tm++ * 30);
-    assert(pam_sm_open_session(NULL, 0, 0, NULL) == *res++);
+    assert(pam_sm_open_session(NULL, 0, targc, targv) == *res++);
   }
 
   // Test the DISALLOW_REUSE option
   puts("Testing DISALLOW_REUSE option");
-  assert(pam_sm_open_session(NULL, 0, 0, NULL) == PAM_SUCCESS);
+  assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
   assert(!chmod(fn, 0600));
   assert((fd = open(fn, O_APPEND | O_WRONLY)) >= 0);
   assert(write(fd, "\" DISALLOW_REUSE\n", 17) == 17);
   close(fd);
-  assert(pam_sm_open_session(NULL, 0, 0, NULL) == PAM_SUCCESS);
-  assert(pam_sm_open_session(NULL, 0, 0, NULL) == PAM_SESSION_ERR);
+  assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
+  assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
 
   // Test that DISALLOW_REUSE expires old entries from the re-use list
   char *old_response = response;
@@ -234,7 +233,7 @@ int main(int argc, char *argv[]) {
     char buf[7];
     response = buf;
     sprintf(response, "%d", compute_code(binary_secret, binary_secret_len, i));
-    assert(pam_sm_open_session(NULL, 0, 0, NULL) == PAM_SUCCESS);
+    assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
   }
   set_time(10000 * 30);
   response = old_response;
@@ -262,7 +261,7 @@ int main(int argc, char *argv[]) {
     sprintf(response, "%d", compute_code(binary_secret,
                                          binary_secret_len,
                                          *tm++));
-    assert(pam_sm_open_session(NULL, 0, 0, NULL) == *res++);
+    assert(pam_sm_open_session(NULL, 0, targc, targv) == *res++);
   }
   set_time(10000 * 30);
   response = old_response;
@@ -277,16 +276,21 @@ int main(int argc, char *argv[]) {
   // Test scratch codes
   puts("Testing scratch codes");
   response = "12345678";
-  assert(pam_sm_open_session(NULL, 0, 0, NULL) == PAM_SESSION_ERR);
+  assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
   assert(!chmod(fn, 0600));
   assert((fd = open(fn, O_APPEND | O_WRONLY)) >= 0);
   assert(write(fd, "12345678\n", 9) == 9);
   close(fd);
-  assert(pam_sm_open_session(NULL, 0, 0, NULL) == PAM_SUCCESS);
-  assert(pam_sm_open_session(NULL, 0, 0, NULL) == PAM_SESSION_ERR);
+  assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
+  assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
 
   // Remove the temporarily created secret file
   unlink(fn);
+
+  // Release memory for the test arguments
+  for (int i = 0; i < targc; ++i) {
+    free(targv[i]);
+  }
 
   // Unload the PAM module
   dlclose(pam_module);
