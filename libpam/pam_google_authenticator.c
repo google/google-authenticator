@@ -190,19 +190,28 @@ static char *get_secret_filename(pam_handle_t *pamh, const Params *params,
 
 static int setuser(int uid) {
 #ifdef HAS_SETFSUID
-  return setfsuid(uid);
+  // The semantics for setfsuid() are a little unusual. On success, the
+  // previous user id is returned. On failure, the current user id is returned.
+  int old_uid = setfsuid(uid);
+  if (uid != setfsuid(uid)) {
+    setfsuid(old_uid);
+    return -1;
+  }
 #else
-  return seteuid(uid) ? -1 : geteuid();
+  int old_uid = geteuid();
+  if (old_uid != uid && seteuid(uid)) {
+    return -1;
+  }
 #endif
+  return old_uid;
 }
 
 static int drop_privileges(pam_handle_t *pamh, const char *username, int uid) {
   // Try to become the new user. This might be necessary for NFS mounted home
   // directories.
   int old_uid = setuser(uid);
-  if (uid != setuser(uid)) {
+  if (old_uid < 0) {
     log_message(LOG_ERR, pamh, "Failed to change user id to \"%s\"", username);
-    setuser(old_uid);
     return -1;
   }
   return old_uid;
