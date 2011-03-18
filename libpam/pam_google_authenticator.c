@@ -49,13 +49,16 @@
 
 typedef struct Params {
   const char *secret_filename_spec;
+  int        noskewadj;
 } Params;
 
-#ifdef TESTING
-static char last_error_msg[128];
+static char oom;
+
+#if defined(DEMO) || defined(TESTING)
+static char error_msg[128];
 
 const char *get_error_msg(void) {
-  return last_error_msg;
+  return error_msg;
 }
 #endif
 
@@ -72,12 +75,14 @@ static void log_message(int priority, pam_handle_t *pamh,
 
   va_list args;
   va_start(args, format);
-#ifndef TESTING
+#if !defined(DEMO) && !defined(TESTING)
   openlog(logname, LOG_CONS | LOG_PID, LOG_AUTHPRIV);
   vsyslog(priority, format, args);
   closelog();
 #else
-  vsnprintf(last_error_msg, sizeof(last_error_msg), format, args);
+  if (!*error_msg) {
+    vsnprintf(error_msg, sizeof(error_msg), format, args);
+  }
 #endif
 
   va_end(args);
@@ -258,12 +263,14 @@ static int open_secret_file(pam_handle_t *pamh, const char *secret_filename,
 }
 
 static char *read_file_contents(pam_handle_t *pamh,
-                                const char *secret_filename, int fd,
+                                const char *secret_filename, int *fd,
                                 off_t filesize) {
   // Read file contents
   char *buf = malloc(filesize + 1);
   if (!buf ||
-      read(fd, buf, filesize) != filesize) {
+      read(*fd, buf, filesize) != filesize) {
+    close(*fd);
+    *fd = -1;
     log_message(LOG_ERR, pamh, "Could not read \"%s\"", secret_filename);
  error:
     if (buf) {
@@ -272,6 +279,8 @@ static char *read_file_contents(pam_handle_t *pamh,
     }
     return NULL;
   }
+  close(*fd);
+  *fd = -1;
 
   // The rest of the code assumes that there are no NUL bytes in the file.
   if (memchr(buf, 0, filesize)) {
@@ -291,7 +300,7 @@ static int is_totp(const char *buf) {
 }
 
 static int write_file_contents(pam_handle_t *pamh, const char *secret_filename,
-                               off_t *old_size, time_t *old_mtime,
+                               off_t old_size, time_t old_mtime,
                                const char *buf) {
   // Safely overwrite the old secret file.
   char *tmp_filename = malloc(strlen(secret_filename) + 2);
@@ -301,6 +310,7 @@ static int write_file_contents(pam_handle_t *pamh, const char *secret_filename,
                 secret_filename);
     return -1;
   }
+
   strcat(strcpy(tmp_filename, secret_filename), "~");
   int fd = open(tmp_filename,
                 O_WRONLY|O_CREAT|O_NOFOLLOW|O_TRUNC|O_EXCL, 0400);
@@ -313,8 +323,8 @@ static int write_file_contents(pam_handle_t *pamh, const char *secret_filename,
   // scratch code multiple times.
   struct stat sb;
   if (stat(secret_filename, &sb) != 0 ||
-      sb.st_size != *old_size ||
-      sb.st_mtime != *old_mtime) {
+      sb.st_size != old_size ||
+      sb.st_mtime != old_mtime) {
     log_message(LOG_ERR, pamh,
                 "Secret file \"%s\" changed while trying to use "
                 "scratch code\n", secret_filename);
@@ -334,12 +344,6 @@ static int write_file_contents(pam_handle_t *pamh, const char *secret_filename,
   }
 
   free(tmp_filename);
-  if (fstat(fd, &sb)) {
-    close(fd);
-    goto removal_failure;
-  }
-  *old_size = sb.st_size;
-  *old_mtime = sb.st_mtime;
   close(fd);
 
   return 0;
@@ -393,39 +397,154 @@ static int comparator(const void *a, const void *b) {
   return *(unsigned int *)a - *(unsigned int *)b;
 }
 
+static char *get_cfg_value(pam_handle_t *pamh, const char *key,
+                           const char *buf) {
+  size_t key_len = strlen(key);
+  for (const char *line = buf; *line; ) {
+    const char *ptr;
+    if (line[0] == '"' && line[1] == ' ' && !memcmp(line+2, key, key_len) &&
+        (!*(ptr = line+2+key_len) || *ptr == ' ' || *ptr == '\t' ||
+         *ptr == '\r' || *ptr == '\n')) {
+      ptr += strspn(ptr, " \t");
+      size_t val_len = strcspn(ptr, "\r\n");
+      char *val = malloc(val_len + 1);
+      if (!val) {
+        log_message(LOG_ERR, pamh, "Out of memory");
+        return &oom;
+      } else {
+        memcpy(val, ptr, val_len);
+        val[val_len] = '\000';
+        return val;
+      }
+    } else {
+      line += strcspn(line, "\r\n");
+      line += strspn(line, "\r\n");
+    }
+  }
+  return NULL;
+}
+
+static int set_cfg_value(pam_handle_t *pamh, const char *key, const char *val,
+                         char **buf) {
+  size_t key_len = strlen(key);
+  char *start = NULL;
+  char *stop = NULL;
+
+  // Find an existing line, if any.
+  for (char *line = *buf; *line; ) {
+    char *ptr;
+    if (line[0] == '"' && line[1] == ' ' && !memcmp(line+2, key, key_len) &&
+        (!*(ptr = line+2+key_len) || *ptr == ' ' || *ptr == '\t' ||
+         *ptr == '\r' || *ptr == '\n')) {
+      start = line;
+      stop  = start + strcspn(start, "\r\n");
+      stop += strspn(stop, "\r\n");
+      break;
+    } else {
+      line += strcspn(line, "\r\n");
+      line += strspn(line, "\r\n");
+    }
+  }
+
+  // If no existing line, insert immediately after the first line.
+  if (!start) {
+    start  = *buf + strcspn(*buf, "\r\n");
+    start += strspn(start, "\r\n");
+    stop   = start;
+  }
+  
+  // Replace [start..stop] with the new contents.
+  size_t val_len = strlen(val);
+  size_t total_len = key_len + val_len + 4;
+  if (total_len <= stop - start) {
+    // We are decreasing out space requirements. Shrink the buffer and pad with
+    // NUL characters.
+    size_t tail_len = strlen(stop);
+    memmove(start + total_len, stop, tail_len + 1);
+    memset(start + total_len + tail_len, 0, stop - start - total_len + 1);
+  } else {
+    // Must resize existing buffer. We cannot call realloc(), as it could
+    // leave parts of the buffer content in unused parts of the heap.
+    size_t buf_len = strlen(*buf);
+    size_t tail_len = buf_len - (stop - *buf);
+    char *resized = malloc(buf_len - (stop - start) + total_len + 1);
+    if (!resized) {
+      log_message(LOG_ERR, pamh, "Out of memory");
+      return -1;
+    }
+    memcpy(resized, *buf, start - *buf);
+    memcpy(resized + (start - *buf) + total_len, stop, tail_len + 1);
+    memset(*buf, 0, buf_len);
+    free(*buf);
+    start = start - *buf + resized;
+    *buf = resized;
+  }
+
+  // Fill in new contents.
+  start[0] = '"';
+  start[1] = ' ';
+  memcpy(start + 2, key, key_len);
+  start[2+key_len] = ' ';
+  memcpy(start+3+key_len, val, val_len);
+  start[3+key_len+val_len] = '\n';
+
+  // Check if there are any other occurrences of "value". If so, delete them.
+  for (char *line = start + 4 + key_len + val_len; *line; ) {
+    char *ptr;
+    if (line[0] == '"' && line[1] == ' ' && !memcmp(line+2, key, key_len) &&
+        (!*(ptr = line+2+key_len) || *ptr == ' ' || *ptr == '\t' ||
+         *ptr == '\r' || *ptr == '\n')) {
+      start = line;
+      stop = start + strcspn(start, "\r\n");
+      stop += strspn(stop, "\r\n");
+      size_t tail_len = strlen(stop);
+      memmove(start, stop, tail_len + 1);
+      memset(start + tail_len, 0, stop - start);
+      line = start;
+    } else {
+      line += strcspn(line, "\r\n");
+      line += strspn(line, "\r\n");
+    }
+  }
+
+  return 0;
+}
+
 static int rate_limit(pam_handle_t *pamh, const char *secret_filename,
-                      off_t *old_size, time_t *old_mtime, char **buf) {
-  static const char key[] = "\" RATE_LIMIT";
-  char *value = strstr(*buf, key);
+                      int *updated, char **buf) {
+  const char *value = get_cfg_value(pamh, "RATE_LIMIT", *buf);
   if (!value) {
     // Rate limiting is not enabled for this account
     return 0;
+  } else if (value == &oom) {
+    // Out of memory. This is a fatal error.
+    return -1;
   }
 
   // Parse both the maximum number of login attempts and the time interval
   // that we are looking at.
-  char *endptr = value + sizeof(key) - 1;
+  const char *endptr = value;
   int attempts, interval;
   errno = 0;
-  if ((*endptr != ' ' && *endptr != '\t') ||
-      ((attempts = (int)strtoul(endptr, &endptr, 10)) < 1) ||
+  if (((attempts = (int)strtoul(endptr, (char **)&endptr, 10)) < 1) ||
       attempts > 100 ||
       errno ||
       (*endptr != ' ' && *endptr != '\t') ||
-      ((interval = (int)strtoul(endptr, &endptr, 10)) < 1) ||
+      ((interval = (int)strtoul(endptr, (char **)&endptr, 10)) < 1) ||
       interval > 3600 ||
       errno) {
+    free((void *)value);
     log_message(LOG_ERR, pamh, "Invalid RATE_LIMIT option. Check \"%s\".",
                 secret_filename);
     return -1;
   }
 
   // Parse the time stamps of all previous login attempts.
-  char *ts_ptr = endptr;
   unsigned int now = get_time();
   unsigned int *timestamps = malloc(sizeof(int));
   if (!timestamps) {
   oom:
+    free((void *)value);
     log_message(LOG_ERR, pamh, "Out of memory!");
     return -1;
   }
@@ -435,7 +554,8 @@ static int rate_limit(pam_handle_t *pamh, const char *secret_filename,
     unsigned int timestamp;
     errno = 0;
     if ((*endptr != ' ' && *endptr != '\t') ||
-        ((timestamp = (int)strtoul(endptr, &endptr, 10)), errno)) {
+        ((timestamp = (int)strtoul(endptr, (char **)&endptr, 10)), errno)) {
+      free((void *)value);
       free(timestamps);
       log_message(LOG_ERR, pamh, "Invalid list of timestamps in RATE_LIMIT. "
                   "Check \"%s\".", secret_filename);
@@ -451,6 +571,8 @@ static int rate_limit(pam_handle_t *pamh, const char *secret_filename,
     timestamps = tmp;
     timestamps[num_timestamps-1] = timestamp;
   }
+  free((void *)value);
+  value = NULL;
 
   // Sort time stamps, then prune all entries outside of the current time
   // interval.
@@ -473,42 +595,27 @@ static int rate_limit(pam_handle_t *pamh, const char *secret_filename,
   }
 
   // Construct new list of timestamps within the current time interval.
-  char *list = malloc(25 * (stop - start + 1) + 2);
+  char *list = malloc(25 * (2 + (stop - start + 1)) + 4);
   if (!list) {
     free(timestamps);
     goto oom;
   }
-  char *prnt = list;
-  list[0] = ' ';
-  list[1] = '\000';
+  sprintf(list, "%d %d", attempts, interval);
+  char *prnt = strchr(list, '\000');
   for (int i = start; i <= stop; ++i) {
     prnt += sprintf(prnt, " %u", timestamps[i]);
   }
   free(timestamps);
 
-  // Resize buffer and set newly updated RATE_LIMIT option.
-  char *resized = malloc(strlen(*buf) + strlen(list) + 1);
-  if (!resized) {
+  // Try to update RATE_LIMIT line.
+  if (set_cfg_value(pamh, "RATE_LIMIT", list, buf) < 0) {
     free(list);
-    goto oom;
-  }
-  memcpy(resized, *buf, ts_ptr - *buf);
-  size_t len = strlen(list);
-  memcpy(memcpy(resized + (ts_ptr - *buf), list, len) + len,
-         endptr, strlen(endptr) + 1);
-  free(list);
-  memset(*buf, 0, strlen(*buf));
-  free(*buf);
-  *buf = resized;
-
-  // Write the updated configuration file.
-  if (write_file_contents(pamh, secret_filename,
-                          old_size, old_mtime, *buf) < 0) {
-    // Couldn't update list of timestamp. Deny access.
-    log_message(LOG_ERR, pamh, "Failed to update state file \"%s\".",
-                secret_filename);
     return -1;
   }
+  free(list);
+
+  // Mark the state file as changed.
+  *updated = 1;
 
   // If necessary, notify the user of the rate limiting that is in effect.
   if (exceeded) {
@@ -555,8 +662,7 @@ static int request_verification_code(pam_handle_t *pamh) {
  * applied.
  */
 static int check_scratch_codes(pam_handle_t *pamh, const char *secret_filename,
-                               off_t *old_size, time_t *old_mtime,
-                               char *buf, int code) {
+                               int *updated, char *buf, int code) {
   // Skip the first line. It contains the shared secret.
   char *ptr = buf + strcspn(buf, "\n");
 
@@ -593,11 +699,9 @@ static int check_scratch_codes(pam_handle_t *pamh, const char *secret_filename,
       // Remove scratch code after using it
       memmove(ptr, endptr, strlen(endptr) + 1);
       memset(strrchr(ptr, '\000'), 0, endptr - ptr + 1);
-      if (write_file_contents(pamh, secret_filename,
-                              old_size, old_mtime, buf) < 0) {
-        // Couldn't remove scratch code. Deny access.
-        return -1;
-      }
+
+      // Mark the state file as changed
+      *updated = 1;
 
       // Successfully removed scratch code. Allow user to log in.
       return 0;
@@ -611,14 +715,17 @@ static int check_scratch_codes(pam_handle_t *pamh, const char *secret_filename,
 
 static int window_size(pam_handle_t *pamh, const char *secret_filename,
                        const char *buf) {
-  static const char key[] = "\" WINDOW_SIZE";
-  const char *value = strstr(buf, key);
+  const char *value = get_cfg_value(pamh, "WINDOW_SIZE", buf);
   if (!value) {
     // Default window size is 3. This gives us one 30s window before and
     // after the current one.
+    free((void *)value);
     return 3;
+  } else if (value == &oom) {
+    // Out of memory. This is a fatal error.
+    return 0;
   }
-  value += sizeof(key) - 1;
+
   char *endptr;
   errno = 0;
   int window = (int)strtoul(value, &endptr, 10);
@@ -626,10 +733,12 @@ static int window_size(pam_handle_t *pamh, const char *secret_filename,
       (*endptr && *endptr != ' ' && *endptr != '\t' &&
        *endptr != '\n' && *endptr != '\r') ||
       window < 1 || window > 100) {
+    free((void *)value);
     log_message(LOG_ERR, pamh, "Invalid WINDOW_SIZE option in \"%s\"",
                 secret_filename);
     return 0;
   }
+  free((void *)value);
   return window;
 }
 
@@ -640,41 +749,52 @@ static int window_size(pam_handle_t *pamh, const char *secret_filename,
  */
 static int invalidate_timebased_code(int tm, pam_handle_t *pamh,
                                      const char *secret_filename,
-                                     off_t *old_size, time_t *old_mtime,
-                                     char **buf) {
-  char *disallow = strstr(*buf, "\" DISALLOW_REUSE");
+                                     int *updated, char **buf) {
+  char *disallow = get_cfg_value(pamh, "DISALLOW_REUSE", *buf);
   if (!disallow) {
     // Reuse of tokens is not explicitly disallowed. Allow the login request
     // to proceed.
     return 0;
+  } else if (disallow == &oom) {
+    // Out of memory. This is a fatal error.
+    return -1;
   }
-  
+
+  // Allow the user to customize the window size parameter.
+  int window = window_size(pamh, secret_filename, *buf);
+  if (!window) {
+    // The user configured a non-standard window size, but there was some
+    // error with the value of this parameter.
+    free((void *)disallow);
+    return -1;
+  }
+
   // The DISALLOW_REUSE option is followed by all known timestamps that are
   // currently unavailable for login.
-  for (char *ptr = disallow + 2;;) {
-    // Find next blocked timestamp value.
-    ptr = ptr + strcspn(ptr, " \t\r\n");
-    if (*ptr == '\r' || *ptr == '\n') {
+  for (char *ptr = disallow; *ptr;) {
+    // Skip white-space, if any
+    ptr += strspn(ptr, " \t\r\n");
+    if (!*ptr) {
       break;
     }
-    ptr += strspn(ptr, " \t");
 
     // Parse timestamp value.
     char *endptr;
     errno = 0;
     int blocked = (int)strtoul(ptr, &endptr, 10);
 
-    // Stop checking as soon as we reach the end of the line, or when we read
-    // a syntactically invalid entry.
+    // Treat syntactically invalid options as an error
     if (errno ||
         ptr == endptr ||
         (*endptr != ' ' && *endptr != '\t' &&
          *endptr != '\r' && *endptr != '\n' && *endptr)) {
-      break;
+      free((void *)disallow);
+      return -1;
     }
 
     if (tm == blocked) {
       // The code is currently blocked from use. Disallow login.
+      free((void *)disallow);
       log_message(LOG_ERR, pamh,
                   "Trying to reuse a previously used time-based code. "
                   "Retry again in 30 seconds. "
@@ -685,46 +805,33 @@ static int invalidate_timebased_code(int tm, pam_handle_t *pamh,
 
     // If the blocked code is outside of the possible window of timestamps,
     // remove it from the file.
-    int window = window_size(pamh, secret_filename, *buf);
-    if (!window) {
-      // The user configured a non-standard window size, but there was some
-      // error with the value of this parameter.
-      return -1;
-    }
     if (blocked - tm >= window || tm - blocked >= window) {
       endptr += strspn(endptr, " \t");
       memmove(ptr, endptr, strlen(endptr) + 1);
-      memset(strrchr(ptr, '\000'), 0, endptr - ptr + 1);
     } else {
       ptr = endptr;
     }
   }
 
   // Add the current timestamp to the list of disallowed timestamps.
-  char *resized = malloc(strlen(*buf) + 40);
+  char *resized = realloc(disallow, strlen(disallow) + 40);
   if (!resized) {
+    free((void *)disallow);
     log_message(LOG_ERR, pamh,
                 "Failed to allocate memory when updating \"%s\"",
                 secret_filename);
     return -1;
   }
-  char *orig = disallow + strcspn(disallow, "\r\n");
-  char *ptr = orig + ((char *)memcpy(resized, *buf, orig - *buf) - *buf);
-  if (ptr[-1] != ' ') {
-    *ptr++ = ' ';
-  }
-  ptr += sprintf(ptr, "%d", tm);
-  memcpy(ptr, orig, strlen(orig) + 1);
-  memset(*buf, 0, strlen(*buf));
-  free(*buf);
-  *buf = resized;
-
-  // Update the configuration file.
-  if (write_file_contents(pamh, secret_filename,
-                          old_size, old_mtime, *buf) < 0) {
-    // Couldn't add blocked code. Deny access.
+  disallow = resized;
+  sprintf(strrchr(disallow, '\000'), " %d" + !*disallow, tm);
+  if (set_cfg_value(pamh, "DISALLOW_REUSE", disallow, buf) < 0) {
+    free((void *)disallow);
     return -1;
   }
+  free((void *)disallow);
+
+  // Mark the state file as changed
+  *updated = 1;
 
   // Allow access.
   return 0;
@@ -756,15 +863,142 @@ int compute_code(const uint8_t *secret, int secretLen, unsigned long value) {
   return truncatedHash;
 }
 
+/* If a user repeated attempts to log in with the same time skew, remember
+ * this skew factor for future login attempts.
+ */
+static int check_time_skew(pam_handle_t *pamh, const char *secret_filename,
+                           int *updated, char **buf, int skew, int tm) {
+  int rc = -1;
+
+  // Parse current RESETTING_TIME_SKEW line, if any.
+  char *resetting = get_cfg_value(pamh, "RESETTING_TIME_SKEW", *buf);
+  if (resetting == &oom) {
+    // Out of memory. This is a fatal error.
+    return -1;
+  }
+
+  // If the user can produce a sequence of three consecutive codes that fall
+  // within a day of the current time. And if he can enter these codes in
+  // quick succession, then we allow the time skew to be reset.
+  // N.B. the number "3" was picked so that it would not trigger the rate
+  // limiting limit if set up with default parameters.
+  unsigned int tms[3];
+  int skews[sizeof(tms)/sizeof(int)];
+
+  int num_entries = 0;
+  if (resetting) {
+    char *ptr = resetting;
+
+    // Read the three most recent pairs of time stamps and skew values into
+    // our arrays.
+    while (*ptr && *ptr != '\r' && *ptr != '\n') {
+      char *endptr;
+      errno = 0;
+      unsigned int i = (int)strtoul(ptr, &endptr, 10);
+      if (errno || ptr == endptr || (*endptr != '+' && *endptr != '-')) {
+        break;
+      }
+      ptr = endptr;
+      int j = (int)strtoul(ptr + 1, &endptr, 10);
+      if (errno ||
+          ptr == endptr ||
+          (*endptr != ' ' && *endptr != '\t' &&
+           *endptr != '\r' && *endptr != '\n' && *endptr)) {
+        break;
+      }
+      if (*ptr == '-') {
+        j = -j;
+      }
+      if (num_entries == sizeof(tms)/sizeof(int)) {
+        memmove(tms, tms+1, sizeof(tms)-sizeof(int));
+        memmove(skews, skews+1, sizeof(skews)-sizeof(int));
+      } else {
+        ++num_entries;
+      }
+      tms[num_entries-1]   = i;
+      skews[num_entries-1] = j;
+      ptr = endptr;
+    }
+
+    // If the user entered an identical code, assume they are just getting
+    // desperate. This doesn't actually provide us with any useful data,
+    // though. Don't change any state and hope the user keeps trying a few
+    // more times.
+    if (num_entries &&
+        tm + skew == tms[num_entries-1] + skews[num_entries-1]) {
+      free((void *)resetting);
+      return rc;
+    }
+  }
+  free((void *)resetting);
+
+  // Append new timestamp entry
+  if (num_entries == sizeof(tms)/sizeof(int)) {
+    memmove(tms, tms+1, sizeof(tms)-sizeof(int));
+    memmove(skews, skews+1, sizeof(skews)-sizeof(int));
+  } else {
+    ++num_entries;
+  }
+  tms[num_entries-1]   = tm;
+  skews[num_entries-1] = skew;
+
+  // Check if we have the required amount of valid entries.
+  if (num_entries == sizeof(tms)/sizeof(int)) {
+    unsigned int last_tm = tms[0];
+    int last_skew = skews[0];
+    int avg_skew = last_skew;
+    for (int i = 1; i < sizeof(tms)/sizeof(int); ++i) {
+      // Check that we have a consecutive sequence of timestamps with no big
+      // gaps in between. Also check that the time skew stays constant. Allow
+      // a minor amount of fuzziness on all parameters.
+      if (tms[i] <= last_tm || tms[i] > last_tm+2 ||
+          last_skew - skew < -1 || last_skew - skew > 1) {
+        goto keep_trying;
+      }
+      last_tm   = tms[i];
+      last_skew = skews[i];
+      avg_skew += last_skew;
+    }
+    avg_skew /= (int)(sizeof(tms)/sizeof(int));
+
+    // The user entered the required number of valid codes in quick
+    // succession. Establish a new valid time skew for all future login
+    // attempts.
+    char time_skew[40];
+    sprintf(time_skew, "%d", avg_skew);
+    if (set_cfg_value(pamh, "TIME_SKEW", time_skew, buf) < 0) {
+      return -1;
+    }
+    rc = 0;
+  keep_trying:;
+  }
+
+  // Set the new RESETTING_TIME_SKEW line, while the user is still trying
+  // to reset the time skew.
+  char reset[80 * (sizeof(tms)/sizeof(int))];
+  *reset = '\000';
+  if (rc) {
+    for (int i = 0; i < num_entries; ++i) {
+      sprintf(strrchr(reset, '\000'), " %d%+d" + !*reset, tms[i], skews[i]);
+    }
+  }
+  if (set_cfg_value(pamh, "RESETTING_TIME_SKEW", reset, buf) < 0) {
+    return -1;
+  }
+
+  // Mark the state file as changed
+  *updated = 1;
+
+  return rc;
+}
+
 /* Checks for time based verification code. Returns -1 on error, 0 on success,
  * and 1, if no time based code had been entered, and subsequent tests should
  * be applied.
  */
-static int check_timebased_code(pam_handle_t *pamh,
-                                const char *secret_filename,
-                                off_t *old_size, time_t *old_mtime, char **buf,
-                                const uint8_t *secret, int secretLen,
-                                int code) {
+static int check_timebased_code(pam_handle_t *pamh, const char*secret_filename,
+                                int *updated, char **buf, const uint8_t*secret,
+                                int secretLen, int code, Params *params) {
   if (!is_totp(*buf)) {
     // The secret file does not actually contain information for a time-based
     // code. Return to caller and see if any other authentication methods
@@ -778,18 +1012,53 @@ static int check_timebased_code(pam_handle_t *pamh,
   }
 
   // Compute verification codes and compare them with user input
-  int tm = get_timestamp();
+  const int tm = get_timestamp();
+  const char *skew_str = get_cfg_value(pamh, "TIME_SKEW", *buf);
+  if (skew_str == &oom) {
+    // Out of memory. This is a fatal error
+    return -1;
+  }
+
+  int skew = 0;
+  if (skew_str) {
+    skew = (int)strtol(skew_str, NULL, 10);
+  }
+  free((void *)skew_str);
+
   int window = window_size(pamh, secret_filename, *buf);
   if (!window) {
-    return 1;
+    return -1;
   }
   for (int i = -((window-1)/2); i <= window/2; ++i) {
-    unsigned int hash = compute_code(secret, secretLen, tm + i);
+    unsigned int hash = compute_code(secret, secretLen, tm + skew + i);
     if (hash == (unsigned int)code) {
-      return invalidate_timebased_code(tm + i, pamh, secret_filename,
-                                       old_size, old_mtime, buf);
+      return invalidate_timebased_code(tm + skew + i, pamh, secret_filename,
+                                       updated, buf);
     }
   }
+
+  if (!params->noskewadj) {
+    // The most common failure mode is for the clocks to be insufficiently
+    // synchronized. We can detect this and store a skew value for future
+    // use.
+    skew = 1000000;
+    for (int i = 0; i < 25*60; ++i) {
+      unsigned int hash = compute_code(secret, secretLen, tm - i);
+      if (hash == (unsigned int)code && skew == 1000000) {
+        // Don't short-circuit out of the loop as the obvious difference in
+        // computation time could be a signal that is valuable to an attacker.
+        skew = -i;
+      }
+      hash = compute_code(secret, secretLen, tm + i);
+      if (hash == (unsigned int)code && skew == 1000000) {
+        skew = i;
+      }
+    }
+    if (skew != 1000000) {
+      return check_time_skew(pamh, secret_filename, updated, buf, skew, tm);
+    }
+  }
+
   return -1;
 }
 
@@ -799,6 +1068,8 @@ static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
     if (!memcmp(argv[i], "secret=", 7)) {
       free((void *)params->secret_filename_spec);
       params->secret_filename_spec = argv[i] + 7;
+    } else if (!strcmp(argv[i], "noskewadj")) {
+      params->noskewadj = 1;
     } else {
       log_message(LOG_ERR, pamh, "Unrecognized option \"%s\"", argv[i]);
       return -1;
@@ -813,15 +1084,15 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
   const char *username;
   char       *secret_filename = NULL;
   int        uid, old_uid = -1, fd = -1;
-  off_t      filesize;
-  time_t     mtime;
+  off_t      filesize = 0;
+  time_t     mtime = 0;
   char       *buf = NULL;
   uint8_t    *secret = NULL;
   int        secretLen = 0;
   int        code = -1;
 
-#ifdef TESTING
-  *last_error_msg = '\000';
+#if defined(DEMO) || defined(TESTING)
+  *error_msg = '\000';
 #endif
 
   // Handle optional arguments that configure our PAM module
@@ -831,21 +1102,21 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
   }
 
   // Read and process status file, then ask the user for the verification code.
+  int updated = 0;
   if ((username = get_user_name(pamh)) &&
       (secret_filename = get_secret_filename(pamh, &params, username, &uid)) &&
       (old_uid = drop_privileges(pamh, username, uid)) >= 0 &&
       (fd = open_secret_file(pamh, secret_filename, username, uid,
                              &filesize, &mtime)) >= 0 &&
-      (buf = read_file_contents(pamh, secret_filename, fd, filesize)) &&
+      (buf = read_file_contents(pamh, secret_filename, &fd, filesize)) &&
       (secret = get_shared_secret(pamh, secret_filename, buf, &secretLen)) &&
-      (rate_limit(pamh, secret_filename, &filesize, &mtime, &buf) >= 0) &&
+      (rate_limit(pamh, secret_filename, &updated, &buf) >= 0) &&
       (code = request_verification_code(pamh)) >= 0) {
     // Check all possible types of verification codes.
-    switch (check_scratch_codes(pamh, secret_filename, &filesize, &mtime,
-                                buf, code)) {
+    switch (check_scratch_codes(pamh, secret_filename, &updated, buf, code)) {
       case 1:
-        switch (check_timebased_code(pamh, secret_filename, &filesize, &mtime,
-                                     &buf, secret, secretLen, code)) {
+        switch (check_timebased_code(pamh, secret_filename, &updated, &buf,
+                                     secret, secretLen, code, &params)) {
           case 0:
             rc = PAM_SUCCESS;
             break;
@@ -866,14 +1137,13 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
     }
   }
 
-  // Clean up
-  if (secret) {
-    memset(secret, 0, secretLen);
-    free(secret);
-  }
-  if (buf) {
-    memset(buf, 0, strlen(buf));
-    free(buf);
+  // Persist the new state.
+  if (updated) {
+    if (write_file_contents(pamh, secret_filename, filesize,
+                            mtime, buf) < 0) {
+      // Could not persist new state. Deny access.
+      rc = PAM_SESSION_ERR;
+    }
   }
   if (fd >= 0) {
     close(fd);
@@ -882,6 +1152,16 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
     setuser(old_uid);
   }
   free(secret_filename);
+
+  // Clean up
+  if (buf) {
+    memset(buf, 0, strlen(buf));
+    free(buf);
+  }
+  if (secret) {
+    memset(secret, 0, secretLen);
+    free(secret);
+  }
   return rc;
 }
 

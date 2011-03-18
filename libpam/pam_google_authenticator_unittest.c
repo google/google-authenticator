@@ -74,7 +74,7 @@ int pam_get_item(const pam_handle_t *pamh, int item_type, const void **item) {
   }
 }
 
-void print_diagnostics(int signo) {
+static void print_diagnostics(int signo) {
   const char *(*get_error_msg)(void) =
     (const char *(*)(void))dlsym(pam_module, "get_error_msg");
   if (get_error_msg && *get_error_msg()) {
@@ -249,18 +249,17 @@ int main(int argc, char *argv[]) {
   puts("Testing RATE_LIMIT option");
   assert(!chmod(fn, 0600));
   assert((fd = open(fn, O_APPEND | O_WRONLY)) >= 0);
-  assert(write(fd, "\" RATE_LIMIT 2 90\n", 18) == 18);
+  assert(write(fd, "\" RATE_LIMIT 4 120\n", 19) == 19);
   close(fd);
-  for (int *tm  = (int []){ 20000, 20001, 20002, 20005, -1 },
-           *res = (int []){ PAM_SUCCESS, PAM_SUCCESS, PAM_SESSION_ERR,
-                            PAM_SUCCESS, -1 };
+  for (int *tm  = (int []){ 20000, 20001, 20002, 20003, 20004, 20006, -1 },
+           *res = (int []){ PAM_SUCCESS, PAM_SUCCESS, PAM_SUCCESS, PAM_SUCCESS,
+                            PAM_SESSION_ERR, PAM_SUCCESS, -1 };
        *tm >= 0;) {
     set_time(*tm * 30);
     char buf[7];
     response = buf;
-    sprintf(response, "%d", compute_code(binary_secret,
-                                         binary_secret_len,
-                                         *tm++));
+    sprintf(response, "%d",
+            compute_code(binary_secret, binary_secret_len, *tm++));
     assert(pam_sm_open_session(NULL, 0, targc, targv) == *res++);
   }
   set_time(10000 * 30);
@@ -271,8 +270,27 @@ int main(int argc, char *argv[]) {
   close(fd);
   const char *rate_limit = strstr(state_file_buf, "\" RATE_LIMIT ");
   assert(rate_limit);
-  assert(!memcmp(rate_limit + 13, "2 90 600060 600150\n", 19));
+  assert(!memcmp(rate_limit + 13, "4 120 600060 600090 600120 600180\n", 35));
 
+  // Test TIME_SKEW option
+  puts("Testing TIME_SKEW");
+  for (int i = 0; i < 4; ++i) {
+    set_time((12000 + i)*30);
+    char buf[7];
+    response = buf;
+    sprintf(response, "%d",
+            compute_code(binary_secret, binary_secret_len, 11000 + i));
+    assert(pam_sm_open_session(NULL, 0, targc, targv) ==
+           (i >= 2 ? PAM_SUCCESS : PAM_SESSION_ERR));
+  }
+  set_time(12010 * 30);
+  char buf[7];
+  response = buf;
+  sprintf(response, "%d", compute_code(binary_secret,binary_secret_len,11010));
+  assert(pam_sm_open_session(NULL, 0, 1, (const char *[]){ "noskewadj", 0 }) ==
+         PAM_SESSION_ERR);
+  set_time(10000*30);
+  
   // Test scratch codes
   puts("Testing scratch codes");
   response = "12345678";
@@ -289,7 +307,7 @@ int main(int argc, char *argv[]) {
 
   // Release memory for the test arguments
   for (int i = 0; i < targc; ++i) {
-    free(targv[i]);
+    free((void *)targv[i]);
   }
 
   // Unload the PAM module

@@ -16,7 +16,7 @@
 
 .SUFFIXES: .so
 
-all: google-authenticator pam_google_authenticator.so                         \
+all: google-authenticator pam_google_authenticator.so demo                    \
      pam_google_authenticator_unittest
 
 test: pam_google_authenticator_unittest
@@ -43,11 +43,16 @@ install: all
 	                   /usr/local/bin/google-authenticator
 
 clean:
-	$(RM) *.o *.so google-authenticator pam_google_authenticator_unittest
+	$(RM) *.o *.so google-authenticator demo pam_google_authenticator_demo\
+	               pam_google_authenticator_unittest
 
 google-authenticator: google-authenticator.o base32.o hmac.o sha1.o
 	$(CC) -g $(LDFLAGS) $(shell [ -f /usr/lib/libdl.so ] && echo " -ldl") \
 	      -o $@ $+
+
+demo: demo.o
+	$(CC) -g $(LDFLAGS) -rdynamic                                         \
+	      $(shell [ -f /usr/lib/libdl.so ] && echo " -ldl") -o $@ $+
 
 pam_google_authenticator_unittest: pam_google_authenticator_unittest.o        \
                                    base32.o hmac.o sha1.o
@@ -56,12 +61,17 @@ pam_google_authenticator_unittest: pam_google_authenticator_unittest.o        \
               -o $@ $+
 
 pam_google_authenticator.so: base32.o hmac.o sha1.o
+pam_google_authenticator_demo.so: base32.o hmac.o sha1.o
 pam_google_authenticator_testing.so: base32.o hmac.o sha1.o
 
 pam_google_authenticator.o: pam_google_authenticator.c base32.h hmac.h sha1.h
+pam_google_authenticator_demo.o: pam_google_authenticator.c base32.h hmac.h   \
+	                         sha1.h
+	$(CC) -DDEMO --std=gnu99 -Wall -O2 -g -fPIC -c $(CFLAGS) -o $@ $<
 pam_google_authenticator_testing.o: pam_google_authenticator.c base32.h       \
                                     hmac.h sha1.h
 	$(CC) -DTESTING --std=gnu99 -Wall -O2 -g -fPIC -c $(CFLAGS) -o $@ $<
+demo.o: demo.c pam_google_authenticator_demo.so
 pam_google_authenticator_unittest.o: pam_google_authenticator_unittest.c      \
                                      pam_google_authenticator_testing.so      \
                                      base32.h hmac.h sha1.h
