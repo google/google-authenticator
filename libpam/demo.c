@@ -17,12 +17,16 @@
 // limitations under the License.
 
 #include <assert.h>
-#include <dlfcn.h>
+#include <fcntl.h>
 #include <security/pam_modules.h>
+#include <setjmp.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/resource.h>
+#include <sys/time.h>
+#include <termios.h>
 #include <unistd.h>
 
 #if !defined(PAM_BAD_ITEM)
@@ -31,16 +35,31 @@
 #define PAM_BAD_ITEM PAM_SYMBOL_ERR
 #endif
 
-static void *pam_module;
+static struct termios old_termios;
+static int jmpbuf_valid;
+static sigjmp_buf jmpbuf;
 
 static int conversation(int num_msg, const struct pam_message **msg,
                         struct pam_response **resp, void *appdata_ptr) {
   if (num_msg == 1 && msg[0]->msg_style == PAM_PROMPT_ECHO_OFF) {
-    printf("%s ", msg[0]->msg);
     *resp = malloc(sizeof(struct pam_response));
     assert(*resp);
     (*resp)->resp = calloc(1024, 0);
+    struct termios termios = old_termios;
+    termios.c_lflag &= ~(ECHO|ECHONL);
+    sigsetjmp(jmpbuf, 1);
+    jmpbuf_valid = 1;
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGTSTP);
+    assert(!sigprocmask(SIG_UNBLOCK, &mask, NULL));
+    printf("%s ", msg[0]->msg);
+    assert(!tcsetattr(0, TCSAFLUSH, &termios));
     assert(fgets((*resp)->resp, 1024, stdin));
+    assert(!tcsetattr(0, TCSAFLUSH, &old_termios));
+    puts("");
+    assert(!sigprocmask(SIG_BLOCK, &mask, NULL));
+    jmpbuf_valid = 0;
     char *ptr = strrchr((*resp)->resp, '\n');
     if (ptr) {
       *ptr = '\000';
@@ -74,34 +93,62 @@ int pam_get_item(const pam_handle_t *pamh, int item_type, const void **item) {
 }
 
 static void print_diagnostics(int signo) {
-  const char *(*get_error_msg)(void) =
-    (const char *(*)(void))dlsym(pam_module, "get_error_msg");
-  if (get_error_msg && *get_error_msg()) {
-    fprintf(stderr, "%s\n", get_error_msg());
-  }
+  extern const char *get_error_msg(void);
+  assert(!tcsetattr(0, TCSAFLUSH, &old_termios));
+  fprintf(stderr, "%s\n", get_error_msg());
   _exit(1);
 }
 
+static void reset_console(int signo) {
+  assert(!tcsetattr(0, TCSAFLUSH, &old_termios));
+  puts("");
+  _exit(1);
+}
+
+static void stop(int signo) {
+  assert(!tcsetattr(0, TCSAFLUSH, &old_termios));
+  puts("");
+  raise(SIGSTOP);
+}
+
+static void cont(int signo) {
+  if (jmpbuf_valid) {
+    siglongjmp(jmpbuf, 0);
+  }
+}
+
 int main(int argc, char *argv[]) {
-  // Load the PAM module
-  puts("Loading PAM module");
-  pam_module = dlopen("./pam_google_authenticator_demo.so",
-                      RTLD_LAZY | RTLD_GLOBAL);
-  assert(pam_module != NULL);
-  signal(SIGABRT, print_diagnostics);
+  extern int pam_sm_open_session(pam_handle_t *, int, int, const char **);
 
-  // Look up public symbols
-  int (*pam_sm_open_session)(pam_handle_t *, int, int, const char **) =
-      (int (*)(pam_handle_t *, int, int, const char **))
-      dlsym(pam_module, "pam_sm_open_session");
-  assert(pam_sm_open_session != NULL);
+  // Try to redirect stdio to /dev/tty
+  int fd = open("/dev/tty", O_RDWR);
+  if (fd >= 0) {
+    dup2(fd, 0);
+    dup2(fd, 1);
+    dup2(fd, 2);
+    close(fd);
+  }
 
+  // Disable core files
+  assert(!setrlimit(RLIMIT_CORE, (struct rlimit []){ { 0, 0 } }));
+
+  // Set up error and job control handlers
+  assert(!tcgetattr(0, &old_termios));
+  sigset_t mask;
+  sigemptyset(&mask);
+  sigaddset(&mask, SIGTSTP);
+  assert(!sigprocmask(SIG_BLOCK, &mask, NULL));
+  assert(!signal(SIGABRT, print_diagnostics));
+  assert(!signal(SIGINT, reset_console));
+  assert(!signal(SIGTSTP, stop));
+  assert(!signal(SIGCONT, cont));
+
+  // Attempt login
   if (pam_sm_open_session(NULL, 0, argc-1, (const char **)argv+1)
       != PAM_SUCCESS) {
     fprintf(stderr, "Login failed\n");
     abort();
   }
-  puts("Success");
 
   return 0;
 }

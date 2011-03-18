@@ -43,14 +43,14 @@ install: all
 	                   /usr/local/bin/google-authenticator
 
 clean:
-	$(RM) *.o *.so google-authenticator demo pam_google_authenticator_demo\
+	$(RM) *.o *.so core google-authenticator demo                         \
 	               pam_google_authenticator_unittest
 
 google-authenticator: google-authenticator.o base32.o hmac.o sha1.o
 	$(CC) -g $(LDFLAGS) $(shell [ -f /usr/lib/libdl.so ] && echo " -ldl") \
 	      -o $@ $+
 
-demo: demo.o
+demo: demo.o pam_google_authenticator_demo.o base32.o hmac.o sha1.o
 	$(CC) -g $(LDFLAGS) -rdynamic                                         \
 	      $(shell [ -f /usr/lib/libdl.so ] && echo " -ldl") -o $@ $+
 
@@ -61,7 +61,6 @@ pam_google_authenticator_unittest: pam_google_authenticator_unittest.o        \
               -o $@ $+
 
 pam_google_authenticator.so: base32.o hmac.o sha1.o
-pam_google_authenticator_demo.so: base32.o hmac.o sha1.o
 pam_google_authenticator_testing.so: base32.o hmac.o sha1.o
 
 pam_google_authenticator.o: pam_google_authenticator.c base32.h hmac.h sha1.h
@@ -71,11 +70,11 @@ pam_google_authenticator_demo.o: pam_google_authenticator.c base32.h hmac.h   \
 pam_google_authenticator_testing.o: pam_google_authenticator.c base32.h       \
                                     hmac.h sha1.h
 	$(CC) -DTESTING --std=gnu99 -Wall -O2 -g -fPIC -c $(CFLAGS) -o $@ $<
-demo.o: demo.c pam_google_authenticator_demo.so
 pam_google_authenticator_unittest.o: pam_google_authenticator_unittest.c      \
                                      pam_google_authenticator_testing.so      \
                                      base32.h hmac.h sha1.h
 google-authenticator.o: google-authenticator.c base32.h hmac.h sha1.h
+demo.o: demo.c base32.h hmac.h sha1.h
 base32.o: base32.c base32.h
 hmac.o: hmac.c hmac.h sha1.h
 sha1.o: sha1.c sha1.h
