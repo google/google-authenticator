@@ -30,7 +30,7 @@ function totp(K,t) {
   var s=sha1(k.concat(sha1(l.concat([0,t])))),o=s[4]&0xF;
   return ((s[o>>2]<<8*(o&3)|(o&3?s[(o>>2)+1]>>>8*(4-o&3):0))&-1>>>1)%1000000;
 }
-var lastcode;
+var lastcode,lastlabel;
 function refresh() {
   var k=document.getElementById('secret').value.
     replace(/[^ABCDEFGHIJKLMNOPQRSTUVWXYZ234567]/gi, '');
@@ -38,8 +38,20 @@ function refresh() {
   var s=document.getElementById('override').value.replace(/[^0-9]/g, '');
   if (s) t=parseInt(s);
   var code=totp(k,t);
-  if (code!=lastcode){
+  var label=escape(document.getElementById('label').value);
+  if (code!=lastcode||label!=lastlabel){
     lastcode=code;
+    lastlabel=label;
+    var h='https://www.google.com/chart?chs=200x200&chld=M|0&'+
+      'cht=qr&chl=otpauth://totp/'+encodeURI(label)+'%3Fsecret%3D'+k;
+    var a=document.getElementById('authurl')
+    a.innerHTML='otpauth://totp/'+label+'?secret='+k;
+    a.href=h;
+    document.getElementById('aqr').href=h;
+    var q=document.getElementById('qr');
+    q.src=h;
+    q.alt=label+' '+k;
+    q.title=label+' '+k;
     document.getElementById('ts').innerHTML=t;
     document.getElementById('totp').innerHTML=code;
   }
@@ -49,12 +61,35 @@ function refresh() {
 <body style="font-family: sans-serif" onload="setInterval(refresh, 100)">
   <h1>TOTP Debugger</h1>
   <table>
-    <tr><td colspan="2">Enter secret key in BASE32:</td>
+    <tr><td colspan="4"><a style="text-decoration: none; color: black"
+                           id="authurl"></a></td>
+        <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        <td rowspan="7"><a style="text-decoration: none" id="aqr">
+          <img id="qr"></a></td></tr>
+    <tr><td colspan="3">Enter secret key in BASE32:&nbsp;</td>
         <td><input type="text" id="secret" /></td></tr>
-    <tr><td>Interval:</td><td align="right">30s</td></tr>
-    <tr><td>Timestamp:</td><td align="right"><span id="ts"></span></td>
-        <td><input type="text" id="override" /></td></tr>
-    <tr><td>TOTP:</td><td align="right"><span id="totp"></span></td></tr>
+    <tr><td colspan="3">Account label:&nbsp;</td>
+        <td><input type="text" id="label" /></td></tr>
+    <tr><td>Interval:&nbsp;</td><td align="right">30s</td><td>&nbsp;</td></tr>
+    <tr><td>Timestamp:&nbsp;</td><td align="right"><span id="ts"></span></td>
+        <td>&nbsp;</td><td><input type="text" id="override" /></td></tr>
+    <tr><td>TOTP:&nbsp;</td><td align="right"><span id="totp"></span></td></tr>
   </table>
+  <br />
+  <br />
+  <div style="width: 80%; color: #dd0000; font-size: small">
+    <p><b>WARNING!</b> This website is a development and debugging tool only.
+    Do <b>not</b> use it to generate security tokens for logging into your
+    account. You should never store, process or otherwise access the secret
+    key on the same machine that you use for accessing your account. Doing so
+    completely defeats the security of two-step verification.</p>
+    <p>Instead, use one of the mobile phone clients made available by the
+    <a href="http://code.google.com/p/google-authenticator">Google
+    Authenticator</a> project. Or follow the <a href="http://www.google.com/support/accounts/bin/static.py?hl=en&page=guide.cs&guide=1056283&topic=1056285">instructions</a>
+    provided by Google.</p>
+    <p>If you ever entered your real secret key into this website, please
+    immediately <a href="https://www.google.com/accounts/SmsAuthConfig">reset
+    your secret key</a>.</p>
+  </div>
 </body>
 </html>
