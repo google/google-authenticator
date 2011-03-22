@@ -1,0 +1,9 @@
+application: utc-time
+version: 1
+runtime: python
+api_version: 1
+
+handlers:
+- url: /.*
+  script: utc-time.py
+  secure: always
