@@ -1,7 +1,32 @@
 <html>
+<!-- TOTP Debugger
+  --
+  -- Copyright 2011 Google Inc.
+  -- Author: Markus Gutschke
+  --
+  -- Licensed under the Apache License, Version 2.0 (the "License");
+  -- you may not use this file except in compliance with the License.
+  -- You may obtain a copy of the License at
+  --
+  --      http://www.apache.org/licenses/LICENSE-2.0
+  --
+  -- Unless required by applicable law or agreed to in writing, software
+  -- distributed under the License is distributed on an "AS IS" BASIS,
+  -- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  -- See the License for the specific language governing permissions and
+  -- limitations under the License.
+-->
 <head>
+  <link rel="shortcut icon" href="http://code.google.com/p/google-authenticator/logo" type="image/png">
   <title>TOTP Debugger</title>
-  <script>
+  <script src="https://utc-time.appspot.com"></script>
+    <!-- Returns a line of the form:
+      --   var timeskew = new Date().getTime() - XXX.XX;
+      -->
+
+  <script> <!--
+// Given a secret key "K" and a timestamp "t" (in 30s units since the
+// beginning of the epoch), return a TOTP code.
 function totp(K,t) {
   function T(x){var y=0x100000000;return(y+(x|0))%y;}
   function sha1(C){
@@ -30,8 +55,14 @@ function totp(K,t) {
   var s=sha1(k.concat(sha1(l.concat([0,t])))),o=s[4]&0xF;
   return ((s[o>>2]<<8*(o&3)|(o&3?s[(o>>2)+1]>>>8*(4-o&3):0))&-1>>>1)%1000000;
 }
-var lastcode,lastlabel;
+
+// Periodically check whether we need to update the UI. It would be a little
+// more efficient to only call this function as a direct result of
+// significant state changes. But polling is cheap, and keeps the code a
+// little easier.
+var lastcode,lastlabel,lastsearch;
 function refresh() {
+  // Compute current TOTP code
   var k=document.getElementById('secret').value.
     replace(/[^ABCDEFGHIJKLMNOPQRSTUVWXYZ234567]/gi, '');
   var t=Math.floor(new Date().getTime()/30000);
@@ -39,9 +70,16 @@ function refresh() {
   if (s) t=parseInt(s);
   var code=totp(k,t);
   var label=escape(document.getElementById('label').value);
-  if (code!=lastcode||label!=lastlabel){
+  var search=document.getElementById('search').value;
+
+  // If TOTP code has changed (either because of user edits, or
+  // because of elapsed time), update the user interface.
+  if (code != lastcode || label != lastlabel || search != lastsearch) {
     lastcode=code;
     lastlabel=label;
+    lastsearch=search;
+
+    // Compute the OTPAuth URL and the associated QR code
     var h='https://www.google.com/chart?chs=200x200&chld=M|0&'+
       'cht=qr&chl=otpauth://totp/'+encodeURI(label)+'%3Fsecret%3D'+k;
     var a=document.getElementById('authurl')
@@ -52,29 +90,99 @@ function refresh() {
     q.src=h;
     q.alt=label+' '+k;
     q.title=label+' '+k;
+
+    // Show the current time in 30s increments since midnight Jan 1st, 1970.
+    // Optionally, let the user override this timestamp.
     document.getElementById('ts').innerHTML=t;
+
+    // Show the current TOTP code.
     document.getElementById('totp').innerHTML=code;
+
+    // If the user manually entered a TOTP code, try to find a matching code
+    // within a 25h window.
+    var result='';
+    if (search && !!(search=parseInt(search))) {
+      for (var i=0; i < 25*120; ++i) {
+        if (search == totp(k, t+(i&1?-Math.floor(i/2):Math.floor(i/2)))) {
+          if (i<2) {
+            result='&nbsp;';
+            break;
+          }
+          if (i >= 120) {
+            result=result + Math.floor(i/120) + 'h ';
+            i%=120;
+          }
+          if (i >= 4) {
+            result=result + Math.floor(i/4) + 'min ';
+            i%=4;
+          }
+          if (i&2) {
+            result=result + '30s ';
+          }
+          if (i&1) {
+            result='Code was valid ' + result + 'ago';
+          } else {
+            result='Code will be valid in ' + result;
+          }
+          break;
+        }
+      }
+      if (!result) {
+        result='No such code within a &#177;12h window';
+      }
+    }
+    document.getElementById('searchresult').innerHTML=result + '&nbsp;';
+
+    // If possible, compare the current time as reported by Javascript
+    // to "official" time as reported by AppEngine. If there is any significant
+    // difference, show a warning message. We always expect at least a minor
+    // time skew due to round trip delays, which we are not bothering to
+    // compensate for.
+    if (typeof timeskew != undefined) {
+      var ts=document.getElementById('timeskew');
+      if (Math.abs(timeskew) < 2000) {
+        ts.style.color='';
+        ts.innerHTML="Your computer's time is set correctly. TOTP codes " +
+                     "will be computed accurately.";
+      } else if (Math.abs(timeskew) < 30000) {
+        ts.style.color='';
+        ts.innerHTML="Your computer's time is off by " +
+          (Math.round(Math.abs(timeskew)/1000)) + " seconds. This is within " +
+          "acceptable tolerances. Computed TOTP codes might be different " +
+          "from the ones in the mobile application, but they will be " +
+          "accepted by the server.";
+      } else {
+        ts.style.color='#dd0000';
+        ts.innerHTML="<b>Your computer's time is off by " +
+          (Math.round(Math.abs(timeskew)/1000)) + " seconds. Computed TOTP " +
+          "codes are probably incorrect.</b>";
+      }
+    }
   }
 }
-  </script>
+  --></script>
 </head>
 <body style="font-family: sans-serif" onload="setInterval(refresh, 100)">
   <h1>TOTP Debugger</h1>
   <table>
-    <tr><td colspan="4"><a style="text-decoration: none; color: black"
-                           id="authurl"></a></td>
+    <tr><td colspan="7"><a style="text-decoration: none; color: black"
+                           id="authurl"></a></td></tr>
+    <tr><td colspan="3">Enter&nbsp;secret&nbsp;key&nbsp;in&nbsp;BASE32:&nbsp;</td>
+        <td><input type="text" id="secret" /></td>
         <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
-        <td rowspan="7"><a style="text-decoration: none" id="aqr">
-          <img id="qr"></a></td></tr>
-    <tr><td colspan="3">Enter secret key in BASE32:&nbsp;</td>
-        <td><input type="text" id="secret" /></td></tr>
-    <tr><td colspan="3">Account label:&nbsp;</td>
+        <td rowspan="8"><a style="text-decoration: none" id="aqr">
+          <img id="qr"></a></td><td width="100%">&nbsp;</td></tr>
+    <tr><td colspan="3">Account&nbsp;label:&nbsp;</td>
         <td><input type="text" id="label" /></td></tr>
     <tr><td>Interval:&nbsp;</td><td align="right">30s</td><td>&nbsp;</td></tr>
     <tr><td>Timestamp:&nbsp;</td><td align="right"><span id="ts"></span></td>
         <td>&nbsp;</td><td><input type="text" id="override" /></td></tr>
-    <tr><td>TOTP:&nbsp;</td><td align="right"><span id="totp"></span></td></tr>
+    <tr><td>TOTP:&nbsp;</td><td align="right"><span id="totp"></span></td>
+        <td>&nbsp;</td><td><input type="text" id="search" /></td></tr>
+    <tr><td colspan="4" id="searchresult"></td></tr>
   </table>
+  <br />
+  <div id="timeskew" style="width: 80%"></div>
   <br />
   <br />
   <div style="width: 80%; color: #dd0000; font-size: small">
