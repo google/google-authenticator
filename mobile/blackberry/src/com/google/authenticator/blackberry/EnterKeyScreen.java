@@ -117,13 +117,13 @@ public class EnterKeyScreen extends MainScreen implements AuthenticatorResource,
       if (decoded.length < MIN_KEY_BYTES) {
         // If the user is trying to submit a key that's too short, then
         // display a message saying it's too short.
-        mStatusText.setText(submitting ? "Key value is too short" : "");
+        mStatusText.setText(submitting ? sResources.getString(ENTER_KEY_VALUE_TOO_SHORT) : "");
         mStatusColor = Color.BLACK;
         return false;
       } else {
         if (INTEGRITY_CHECK_ENABLED) {
           String checkCode = CheckCodeScreen.getCheckCode(mKeyEntryField.getText());
-          mStatusText.setText("Integrity check value: " + checkCode);
+          mStatusText.setText(sResources.getString(ENTER_KEY_INTEGRITY_CHECK_VALUE) + checkCode);
           mStatusColor = Color.GREEN;
         } else {
           mStatusText.setText("");
@@ -131,11 +131,11 @@ public class EnterKeyScreen extends MainScreen implements AuthenticatorResource,
         return true;
       }
     } catch (Base32String.DecodingException e) {
-      mStatusText.setText(e.getMessage());
+      mStatusText.setText(sResources.getString(ENTER_KEY_INVALID_FORMAT));
       mStatusColor = Color.RED;
       return false;
     } catch (RuntimeException e) {
-      mStatusText.setText("Unexpected problem");
+      mStatusText.setText(sResources.getString(ENTER_KEY_UNEXPECTED_PROBLEM));
       mStatusColor = Color.RED;
       return false;
     }
