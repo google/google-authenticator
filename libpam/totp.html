@@ -51,7 +51,6 @@ function totp(K,t) {
     c=c*32+'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'.
       indexOf(K.charAt(i++).toUpperCase());
     if((j+=5)>31)k.push(T(Math.floor(c/(1<<(j-=32))))),c&=31;}
-  j&&k.push(c*(1<<(j-32)));while(k.length<16)k.push(0);
   for(i=0;i<16;++i)l.push(T(0x6A6A6A6A^(k[i]=T(k[i]^0x5C5C5C5C))));
   var s=sha1(k.concat(sha1(l.concat([0,t])))),o=s[4]&0xF;
   return ((s[o>>2]<<8*(o&3)|(o&3?s[(o>>2)+1]>>>8*(4-o&3):0))&-1>>>1)%1000000;
@@ -61,24 +60,41 @@ function totp(K,t) {
 // more efficient to only call this function as a direct result of
 // significant state changes. But polling is cheap, and keeps the code a
 // little easier.
-var lastcode,lastlabel,lastsearch;
+var lastsecret,lastlabel,lastepochseconds,lastoverrideepoch;
+var lasttimestamp,lastoverride,lastsearch;
 function refresh() {
   // Compute current TOTP code
   var k=document.getElementById('secret').value.
     replace(/[^ABCDEFGHIJKLMNOPQRSTUVWXYZ234567]/gi, '');
-  var t=Math.floor(new Date().getTime()/30000);
+  var d=document.getElementById('overrideepoch').value.replace(/[^0-9]/g, '');
+  if (d) e=parseInt(d); else e=Math.floor(new Date().getTime()/1000);
+  var t=Math.floor(e/30);
   var s=document.getElementById('override').value.replace(/[^0-9]/g, '');
-  if (s) t=parseInt(s);
-  var code=totp(k,t);
+  if (s) { t=parseInt(s); e=30*t; }
   var label=escape(document.getElementById('label').value);
   var search=document.getElementById('search').value;
 
   // If TOTP code has changed (either because of user edits, or
   // because of elapsed time), update the user interface.
-  if (code != lastcode || label != lastlabel || search != lastsearch) {
-    lastcode=code;
+  if (k != lastsecret || label != lastlabel || e != lastepochseconds ||
+      d != lastoverrideepoch || t != lasttimestamp || s != lastoverride ||
+      search != lastsearch) {
+    if (d != lastoverrideepoch) {
+      document.getElementById('override').value = '';
+      s = '';
+    } else if (s != lastoverride) {
+      document.getElementById('overrideepoch').value = '';
+      d = '';
+    }
+    lastsecret=k;
     lastlabel=label;
+    lastepochseconds=e;
+    lastoverrideepoch=d;
+    lasttimestamp=t;
+    lastoverride=s;
     lastsearch=search;
+
+    var code=totp(k,t);
 
     // Compute the OTPAuth URL and the associated QR code
     var h='https://www.google.com/chart?chs=200x200&chld=M|0&'+
@@ -92,8 +108,9 @@ function refresh() {
     q.alt=label+' '+k;
     q.title=label+' '+k;
 
-    // Show the current time in 30s increments since midnight Jan 1st, 1970.
-    // Optionally, let the user override this timestamp.
+    // Show the current time in seconds and in 30s increments since midnight
+    // Jan 1st, 1970. Optionally, let the user override this timestamp.
+    document.getElementById('epoch').innerHTML=e;
     document.getElementById('ts').innerHTML=t;
 
     // Show the current TOTP code.
@@ -176,6 +193,9 @@ function refresh() {
     <tr><td colspan="3">Account&nbsp;label:&nbsp;</td>
         <td><input type="text" id="label" /></td></tr>
     <tr><td>Interval:&nbsp;</td><td align="right">30s</td><td>&nbsp;</td></tr>
+    <tr><td>Time:&nbsp;</td><td align="right">
+          <span id="epoch"></span></td><td>&nbsp;</td><td>
+          <input type="text" id="overrideepoch" /></td></tr>
     <tr><td>Timestamp:&nbsp;</td><td align="right"><span id="ts"></span></td>
         <td>&nbsp;</td><td><input type="text" id="override" /></td></tr>
     <tr><td>TOTP:&nbsp;</td><td align="right"><span id="totp"></span></td>
