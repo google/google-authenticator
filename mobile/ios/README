@@ -1,0 +1,36 @@
+StrongAuth (Two-Factor Authentication) iOS client.
+Author: Dave MacLachlan <dmaclach@google.com
+
+
+This client generates and displays one time passwords for logging in to
+GAIA, or any other system which supports HOTP[1] or TOTP[2].
+
+It is designed to be configured via a URL handler, as follows:
+
+  otpauth://TYPE/LABEL?PARAMETERS
+
+where TYPE is "hotp" or "totp" and LABEL is a human readable label to help
+distinguish multiple otp generators.
+
+The supported PARAMETERS are:
+
+  algorithm=(SHA1|SHA256|SHA512|MD5)
+    OPTIONAL, defaults to SHA1.
+
+  secret=[websafe Base64 encoded secret key, no padding]
+    REQUIRED, 128 bits or more.
+
+  digits=(6|8)
+    OPTIONAL, defaults to 6.
+
+  counter=N  (hotp specific)
+    REQUIRED
+
+  period=N  (totp specific)
+    OPTIONAL, defaults to 30.
+
+References:
+1. HOTP: An HMAC-Based One-Time Password Algorithm
+   http://tools.ietf.org/html/rfc4226
+2. TOTP: Time-based One-time Password Algorithm
+   http://tools.ietf.org/html/draft-mraihi-totp-timebased

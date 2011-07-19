@@ -1,0 +1,67 @@
+/* iPhone Terms of Service Table Item Title */
+"Terms of Service" = "Услови коришћења услуге";
+/* iPhone Privacy Policy Table Item Title */
+"Privacy Policy" = "Политика приватности";
+/* iPhone Legal Notices Table Item Title */
+"Legal Notices" = "Правна обавештења";
+/* iPhone Notification that a web page cannot be loaded */
+"Unable to load webpage." = "Учитавање веб странице није могуће.";
+/* iPhone OK Button */
+"OK" = "Потврди";
+/* iPhone Add Token Message */
+"Do you want to add the token named “%@”?" = "Да ли желите да додате токен под називом „%@“?";
+/* iPhone Negative response to adding a token query. */
+"No" = "Не";
+/* iPhone Positive response to adding a token query. */
+"Yes" = "Да";
+/* iPhone Alert title describing a bad key */
+"Invalid Key" = "Неважећи кôд";
+/* iPhone Alert describing invalid key */
+"The key '%@' is invalid." = "Кôд „%@“ је неважећи.";
+/* iPhone Alert describing missing key */
+"You must enter a key." = "Морате да унесете кôд.";
+/* iPhone Button title to try again */
+"Try Again" = "Покушај поново";
+/* iPhone Cancel button for taking pictures */
+"Cancel" = "Откажи";
+/* iPhone Alert title describing a bad barcode */
+"Invalid Barcode" = "Неважећи баркод";
+/* iPhone Alert describing invalid barcode type. */
+"The barcode '%@' is not a valid authentication token barcode." = "Баркод „%@“ није важећи баркод токена за потврду аутентичности.";
+/* iPhone Title for welcome screen */
+"Welcome" = "Добро дошли";
+/* iPhone Welcome text */
+"Welcome_label" = "Google Authenticator генерише верификационе кодове који пружају додатну безбедност приликом пријаве.\n\nДа бисте користили Google Authenticator морате прво да додате налог притиском на:";
+/* iPhone Legal Information Button Title */
+"Legal Information" = "Правне информације";
+/* iPhone Short Product Name */
+"Authenticator" = "Authenticator";
+/* iPhone Product Name */
+"Google Authenticator" = "Google Authenticator";
+/* iPhone Add Token Navigation Screen Title and Alert Title */
+"Add Token" = "Додавање токена";
+/* iPhone Time Based Account Type */
+"Time Based" = "Засновано на времену";
+/* iPhone Counter Based Account Type */
+"Counter Based" = "Засновано на бројачу";
+/* iPhone Label for Account field */
+"Account:" = "Налог:";
+/* iPhone Placeholder string for used acccount */
+"user@example.com" = "korisnik@example.com";
+/* iPhone Label for Key field */
+"Key:" = "Кôд:";
+/* iPhone Placeholder string for key field */
+"Enter your key" = "Унесите кôд";
+/* iPhone Scan Barcode button title */
+"Scan Barcode" = "Скенирај баркод";
+/* iPhone Integerity Check Value label */
+"Integrity Check Value" = "Integrity Check Value";
+
+/*
+   Localizable.strings
+   OTPAuth
+
+   Created by Dave MacLachlan on 2011/4/12.
+   Copyright 2011 Google Inc. All rights reserved.
+ */
+

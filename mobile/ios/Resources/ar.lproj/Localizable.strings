@@ -1,0 +1,67 @@
+/* iPhone Terms of Service Table Item Title */
+"Terms of Service" = "بنود الخدمة";
+/* iPhone Privacy Policy Table Item Title */
+"Privacy Policy" = "سياسة الخصوصية";
+/* iPhone Legal Notices Table Item Title */
+"Legal Notices" = "إشعارات قانونية";
+/* iPhone Notification that a web page cannot be loaded */
+"Unable to load webpage." = "يتعذر تحديد صفحة الويب.";
+/* iPhone OK Button */
+"OK" = "موافق";
+/* iPhone Add Token Message */
+"Do you want to add the token named “%@”?" = "هل تريد إضافة الرمز المميز المسمى \"%@\"؟";
+/* iPhone Negative response to adding a token query. */
+"No" = "لا";
+/* iPhone Positive response to adding a token query. */
+"Yes" = "نعم";
+/* iPhone Alert title describing a bad key */
+"Invalid Key" = "مفتاح غير صالح";
+/* iPhone Alert describing invalid key */
+"The key '%@' is invalid." = "المفتاح \"%@\" غير صالح.";
+/* iPhone Alert describing missing key */
+"You must enter a key." = "يجب أن تُدخِل مفتاحًا.";
+/* iPhone Button title to try again */
+"Try Again" = "إعادة المحاولة";
+/* iPhone Cancel button for taking pictures */
+"Cancel" = "إلغاء";
+/* iPhone Alert title describing a bad barcode */
+"Invalid Barcode" = "رمز شريطي غير صالح";
+/* iPhone Alert describing invalid barcode type. */
+"The barcode '%@' is not a valid authentication token barcode." = "الرمز الشريطي \"%@\" ليس رمزًا شريطيًا صالحًا لرمز المصادقة المميز.";
+/* iPhone Title for welcome screen */
+"Welcome" = "مرحبًا";
+/* iPhone Welcome text */
+"Welcome_label" = "تنشئ أداة مصادقة Google رموز تحقق تقدم المزيد من الأمان عند تسجيل الدخول.\n\nلاستخدام أداة مصادقة Google، يجب أولاً إدخال حساب عن طريق الضغط على:";
+/* iPhone Legal Information Button Title */
+"Legal Information" = "إشعارات قانونية";
+/* iPhone Short Product Name */
+"Authenticator" = "أداة المصادقة";
+/* iPhone Product Name */
+"Google Authenticator" = "أداة مصادقة Google";
+/* iPhone Add Token Navigation Screen Title and Alert Title */
+"Add Token" = "إضافة رمز مميز";
+/* iPhone Time Based Account Type */
+"Time Based" = "وفقًا للوقت";
+/* iPhone Counter Based Account Type */
+"Counter Based" = "وفقًا للعداد";
+/* iPhone Label for Account field */
+"Account:" = "الحساب:";
+/* iPhone Placeholder string for used acccount */
+"user@example.com" = "user@example.com";
+/* iPhone Label for Key field */
+"Key:" = "المفتاح:";
+/* iPhone Placeholder string for key field */
+"Enter your key" = "إدخال المفتاح";
+/* iPhone Scan Barcode button title */
+"Scan Barcode" = "مسح الرمز الشريطي ضوئيًا";
+/* iPhone Integerity Check Value label */
+"Integrity Check Value" = "Integrity Check Value";
+
+/*
+   Localizable.strings
+   OTPAuth
+
+   Created by Dave MacLachlan on 2011/4/12.
+   Copyright 2011 Google Inc. All rights reserved.
+ */
+

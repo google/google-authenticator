@@ -1,0 +1,67 @@
+/* iPhone Terms of Service Table Item Title */
+"Terms of Service" = "Persyaratan Layanan";
+/* iPhone Privacy Policy Table Item Title */
+"Privacy Policy" = "Kebijakan Privasi";
+/* iPhone Legal Notices Table Item Title */
+"Legal Notices" = "Pemberitahuan Masalah Hukum";
+/* iPhone Notification that a web page cannot be loaded */
+"Unable to load webpage." = "Tidak dapat memuat laman web.";
+/* iPhone OK Button */
+"OK" = "OK";
+/* iPhone Add Token Message */
+"Do you want to add the token named “%@”?" = "Apakah Anda ingin menambahkan token dengan nama “%@”?";
+/* iPhone Negative response to adding a token query. */
+"No" = "Tidak";
+/* iPhone Positive response to adding a token query. */
+"Yes" = "Ya";
+/* iPhone Alert title describing a bad key */
+"Invalid Key" = "Kunci Tidak Valid";
+/* iPhone Alert describing invalid key */
+"The key '%@' is invalid." = "Kunci '%@' tidak valid.";
+/* iPhone Alert describing missing key */
+"You must enter a key." = "Anda harus memasukkan kunci.";
+/* iPhone Button title to try again */
+"Try Again" = "Coba Lagi";
+/* iPhone Cancel button for taking pictures */
+"Cancel" = "Batal";
+/* iPhone Alert title describing a bad barcode */
+"Invalid Barcode" = "Kode Batang Tidak Valid";
+/* iPhone Alert describing invalid barcode type. */
+"The barcode '%@' is not a valid authentication token barcode." = "Kode batang '%@' bukan kode batang token autentikasi yang valid.";
+/* iPhone Title for welcome screen */
+"Welcome" = "Selamat datang";
+/* iPhone Welcome text */
+"Welcome_label" = "Google Authenticator menghasilkan kode verifikasi yang memberikan keamanan tambahan saat masuk.\n\nUntuk menggunakan Google Authenticator, Anda harus menambah sebuah akun terlebih dahulu dengan menekan:";
+/* iPhone Legal Information Button Title */
+"Legal Information" = "Informasi Masalah Hukum";
+/* iPhone Short Product Name */
+"Authenticator" = "Authenticator";
+/* iPhone Product Name */
+"Google Authenticator" = "Google Authenticator";
+/* iPhone Add Token Navigation Screen Title and Alert Title */
+"Add Token" = "Tambahkan Token";
+/* iPhone Time Based Account Type */
+"Time Based" = "Berbasis Waktu";
+/* iPhone Counter Based Account Type */
+"Counter Based" = "Berbasis Penghitung";
+/* iPhone Label for Account field */
+"Account:" = "Akun:";
+/* iPhone Placeholder string for used acccount */
+"user@example.com" = "pengguna@example.com";
+/* iPhone Label for Key field */
+"Key:" = "Kunci:";
+/* iPhone Placeholder string for key field */
+"Enter your key" = "Masukkan kunci Anda";
+/* iPhone Scan Barcode button title */
+"Scan Barcode" = "Pindai Kode Batang";
+/* iPhone Integerity Check Value label */
+"Integrity Check Value" = "Nilai Pemeriksaan Integritas";
+
+/*
+   Localizable.strings
+   OTPAuth
+
+   Created by Dave MacLachlan on 2011/4/12.
+   Copyright 2011 Google Inc. All rights reserved.
+ */
+

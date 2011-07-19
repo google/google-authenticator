@@ -1,0 +1,67 @@
+/* iPhone Terms of Service Table Item Title */
+"Terms of Service" = "Pak. snieg. not.";
+/* iPhone Privacy Policy Table Item Title */
+"Privacy Policy" = "Konfidencialitātes politika";
+/* iPhone Legal Notices Table Item Title */
+"Legal Notices" = "Juridiskie paziņojumi";
+/* iPhone Notification that a web page cannot be loaded */
+"Unable to load webpage." = "Nevar ielādēt tīmekļa lapu.";
+/* iPhone OK Button */
+"OK" = "Labi";
+/* iPhone Add Token Message */
+"Do you want to add the token named “%@”?" = "Vai vēlaties pievienot pilnvaru %@?";
+/* iPhone Negative response to adding a token query. */
+"No" = "Nē";
+/* iPhone Positive response to adding a token query. */
+"Yes" = "Jā";
+/* iPhone Alert title describing a bad key */
+"Invalid Key" = "Nederīga atslēga";
+/* iPhone Alert describing invalid key */
+"The key '%@' is invalid." = "Atslēga %@ ir nederīga.";
+/* iPhone Alert describing missing key */
+"You must enter a key." = "Jums ir jāievada atslēga.";
+/* iPhone Button title to try again */
+"Try Again" = "Mēģiniet vēlreiz";
+/* iPhone Cancel button for taking pictures */
+"Cancel" = "Atcelt";
+/* iPhone Alert title describing a bad barcode */
+"Invalid Barcode" = "Nederīgs svītrkods";
+/* iPhone Alert describing invalid barcode type. */
+"The barcode '%@' is not a valid authentication token barcode." = "Svītrkods %@ nav derīgs autentifikācijas pilnvaras svītrkods.";
+/* iPhone Title for welcome screen */
+"Welcome" = "Laipni lūdzam";
+/* iPhone Welcome text */
+"Welcome_label" = "Google autentifikators ģenerē verifikācijas kodus, kas nodrošina papildu drošību pierakstīšanās brīdī.\n\nLai lietotu Google autentifikatoru, no sākuma pievienojiet kontu, nospiežot:";
+/* iPhone Legal Information Button Title */
+"Legal Information" = "Juridiska informācija";
+/* iPhone Short Product Name */
+"Authenticator" = "Autentifikators";
+/* iPhone Product Name */
+"Google Authenticator" = "Google autentifikators";
+/* iPhone Add Token Navigation Screen Title and Alert Title */
+"Add Token" = "Pievienot pilnvaru";
+/* iPhone Time Based Account Type */
+"Time Based" = "Ar laika ierobežojumu";
+/* iPhone Counter Based Account Type */
+"Counter Based" = "Ar skaitītāja ierobežojumu";
+/* iPhone Label for Account field */
+"Account:" = "Konts:";
+/* iPhone Placeholder string for used acccount */
+"user@example.com" = "lietotajs@example.com";
+/* iPhone Label for Key field */
+"Key:" = "Atslēga:";
+/* iPhone Placeholder string for key field */
+"Enter your key" = "Ievadiet savu atslēgu";
+/* iPhone Scan Barcode button title */
+"Scan Barcode" = "Skenēt svītrkodu";
+/* iPhone Integerity Check Value label */
+"Integrity Check Value" = "Integrity Check Value";
+
+/*
+   Localizable.strings
+   OTPAuth
+
+   Created by Dave MacLachlan on 2011/4/12.
+   Copyright 2011 Google Inc. All rights reserved.
+ */
+
