@@ -1,1 +1,2 @@
 mobile/ios/externals/google-toolbox-for-mac = [svn]https://google-toolbox-for-mac.googlecode.com/svn/trunk/
+mobile/ios/externals/zxing = [svn]https://zxing.googlecode.com/svn/trunk/
