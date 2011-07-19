@@ -1,0 +1,67 @@
+/* iPhone Terms of Service Table Item Title */
+"Terms of Service" = "服务条款";
+/* iPhone Privacy Policy Table Item Title */
+"Privacy Policy" = "隐私权政策";
+/* iPhone Legal Notices Table Item Title */
+"Legal Notices" = "法律声明";
+/* iPhone Notification that a web page cannot be loaded */
+"Unable to load webpage." = "无法加载网页。";
+/* iPhone OK Button */
+"OK" = "确定";
+/* iPhone Add Token Message */
+"Do you want to add the token named “%@”?" = "您想添加名为“%@”的令牌吗？";
+/* iPhone Negative response to adding a token query. */
+"No" = "否";
+/* iPhone Positive response to adding a token query. */
+"Yes" = "是";
+/* iPhone Alert title describing a bad key */
+"Invalid Key" = "密钥无效";
+/* iPhone Alert describing invalid key */
+"The key '%@' is invalid." = "密钥“%@”无效。";
+/* iPhone Alert describing missing key */
+"You must enter a key." = "您必须输入一个密钥。";
+/* iPhone Button title to try again */
+"Try Again" = "重试";
+/* iPhone Cancel button for taking pictures */
+"Cancel" = "取消";
+/* iPhone Alert title describing a bad barcode */
+"Invalid Barcode" = "条形码无效";
+/* iPhone Alert describing invalid barcode type. */
+"The barcode '%@' is not a valid authentication token barcode." = "条形码“%@”不是有效的身份验证令牌条形码。";
+/* iPhone Title for welcome screen */
+"Welcome" = "欢迎";
+/* iPhone Welcome text */
+"Welcome_label" = "Google 身份验证器可以生成验证码，从而增强登录时的安全性。\n\n要使用 Google 身份验证器，必须先添加一个帐户，方法是按：";
+/* iPhone Legal Information Button Title */
+"Legal Information" = "法律信息";
+/* iPhone Short Product Name */
+"Authenticator" = "身份验证器";
+/* iPhone Product Name */
+"Google Authenticator" = "Google 身份验证器";
+/* iPhone Add Token Navigation Screen Title and Alert Title */
+"Add Token" = "添加令牌";
+/* iPhone Time Based Account Type */
+"Time Based" = "基于时间";
+/* iPhone Counter Based Account Type */
+"Counter Based" = "基于计数器";
+/* iPhone Label for Account field */
+"Account:" = "帐户：";
+/* iPhone Placeholder string for used acccount */
+"user@example.com" = "user@example.com";
+/* iPhone Label for Key field */
+"Key:" = "密钥：";
+/* iPhone Placeholder string for key field */
+"Enter your key" = "输入您的密钥";
+/* iPhone Scan Barcode button title */
+"Scan Barcode" = "扫描条形码";
+/* iPhone Integerity Check Value label */
+"Integrity Check Value" = "Integrity Check Value";
+
+/*
+   Localizable.strings
+   OTPAuth
+
+   Created by Dave MacLachlan on 2011/4/12.
+   Copyright 2011 Google Inc. All rights reserved.
+ */
+

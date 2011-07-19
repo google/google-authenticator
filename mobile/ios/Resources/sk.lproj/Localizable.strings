@@ -1,0 +1,67 @@
+/* iPhone Terms of Service Table Item Title */
+"Terms of Service" = "Zmluvné podmienky";
+/* iPhone Privacy Policy Table Item Title */
+"Privacy Policy" = "Ochrana osobných údajov";
+/* iPhone Legal Notices Table Item Title */
+"Legal Notices" = "Právne vyhlásenia";
+/* iPhone Notification that a web page cannot be loaded */
+"Unable to load webpage." = "Webovú stránku sa nepodarilo načítať.";
+/* iPhone OK Button */
+"OK" = "OK";
+/* iPhone Add Token Message */
+"Do you want to add the token named “%@”?" = "Chcete pridať token s názvom „%@“?";
+/* iPhone Negative response to adding a token query. */
+"No" = "Nie";
+/* iPhone Positive response to adding a token query. */
+"Yes" = "Áno";
+/* iPhone Alert title describing a bad key */
+"Invalid Key" = "Neplatný kľúč";
+/* iPhone Alert describing invalid key */
+"The key '%@' is invalid." = "Kľúč „%@“ je neplatný.";
+/* iPhone Alert describing missing key */
+"You must enter a key." = "Musíte zadať kľúč.";
+/* iPhone Button title to try again */
+"Try Again" = "Skúsiť znova";
+/* iPhone Cancel button for taking pictures */
+"Cancel" = "Zrušiť";
+/* iPhone Alert title describing a bad barcode */
+"Invalid Barcode" = "Neplatný čiarový kód";
+/* iPhone Alert describing invalid barcode type. */
+"The barcode '%@' is not a valid authentication token barcode." = "Čiarový kód „%@“ nie je platným čiarovým kódom overovacieho tokenu.";
+/* iPhone Title for welcome screen */
+"Welcome" = "Vitajte";
+/* iPhone Welcome text */
+"Welcome_label" = "Aplikácia Google Authenticator generuje verifikačné kódy, ktoré poskytujú ďalšiu úroveň zabezpečenia pri prihlasovaní.\n\nAk chcete použiť aplikáciu Google Authenticator, musíte najprv pridať účet stlačením tlačidla:";
+/* iPhone Legal Information Button Title */
+"Legal Information" = "Právne informácie";
+/* iPhone Short Product Name */
+"Authenticator" = "Authenticator";
+/* iPhone Product Name */
+"Google Authenticator" = "Google Authenticator";
+/* iPhone Add Token Navigation Screen Title and Alert Title */
+"Add Token" = "Pridať token";
+/* iPhone Time Based Account Type */
+"Time Based" = "Na základe času";
+/* iPhone Counter Based Account Type */
+"Counter Based" = "Na základe počítadla";
+/* iPhone Label for Account field */
+"Account:" = "Účet:";
+/* iPhone Placeholder string for used acccount */
+"user@example.com" = "pouzivatel@example.com";
+/* iPhone Label for Key field */
+"Key:" = "Kľúč:";
+/* iPhone Placeholder string for key field */
+"Enter your key" = "Zadajte svoj kľúč";
+/* iPhone Scan Barcode button title */
+"Scan Barcode" = "Skenovať čiarový kód";
+/* iPhone Integerity Check Value label */
+"Integrity Check Value" = "Integrity Check Value";
+
+/*
+   Localizable.strings
+   OTPAuth
+
+   Created by Dave MacLachlan on 2011/4/12.
+   Copyright 2011 Google Inc. All rights reserved.
+ */
+

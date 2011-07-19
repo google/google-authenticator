@@ -1,0 +1,67 @@
+/* iPhone Terms of Service Table Item Title */
+"Terms of Service" = "Termini di servizio";
+/* iPhone Privacy Policy Table Item Title */
+"Privacy Policy" = "Norme sulla privacy";
+/* iPhone Legal Notices Table Item Title */
+"Legal Notices" = "Note legali";
+/* iPhone Notification that a web page cannot be loaded */
+"Unable to load webpage." = "Impossibile caricare la pagina web.";
+/* iPhone OK Button */
+"OK" = "OK";
+/* iPhone Add Token Message */
+"Do you want to add the token named “%@”?" = "Aggiungere il token \"%@\"?";
+/* iPhone Negative response to adding a token query. */
+"No" = "No";
+/* iPhone Positive response to adding a token query. */
+"Yes" = "Sì";
+/* iPhone Alert title describing a bad key */
+"Invalid Key" = "Codice non valido";
+/* iPhone Alert describing invalid key */
+"The key '%@' is invalid." = "Il codice \"%@\" non è valido.";
+/* iPhone Alert describing missing key */
+"You must enter a key." = "Inserisci un codice.";
+/* iPhone Button title to try again */
+"Try Again" = "Riprova";
+/* iPhone Cancel button for taking pictures */
+"Cancel" = "Annulla";
+/* iPhone Alert title describing a bad barcode */
+"Invalid Barcode" = "Codice a barre non valido";
+/* iPhone Alert describing invalid barcode type. */
+"The barcode '%@' is not a valid authentication token barcode." = "Il codice a barre \"%@\" non è il codice di un token di autenticazione valido.";
+/* iPhone Title for welcome screen */
+"Welcome" = "Benvenuto";
+/* iPhone Welcome text */
+"Welcome_label" = "Google Authenticator genera dei codici di verifica che consentono maggiore sicurezza durante l'accesso.\n\nPer poter utilizzare Google Authenticator devi aggiungere un account premendo:";
+/* iPhone Legal Information Button Title */
+"Legal Information" = "Informazioni legali";
+/* iPhone Short Product Name */
+"Authenticator" = "Authenticator";
+/* iPhone Product Name */
+"Google Authenticator" = "Google Authenticator";
+/* iPhone Add Token Navigation Screen Title and Alert Title */
+"Add Token" = "Aggiungi token";
+/* iPhone Time Based Account Type */
+"Time Based" = "Basato sull'ora";
+/* iPhone Counter Based Account Type */
+"Counter Based" = "Basato sul contatore";
+/* iPhone Label for Account field */
+"Account:" = "Account:";
+/* iPhone Placeholder string for used acccount */
+"user@example.com" = "utente@example.com";
+/* iPhone Label for Key field */
+"Key:" = "Codice:";
+/* iPhone Placeholder string for key field */
+"Enter your key" = "Inserisci il codice";
+/* iPhone Scan Barcode button title */
+"Scan Barcode" = "Leggi codice a barre";
+/* iPhone Integerity Check Value label */
+"Integrity Check Value" = "Valore di verifica dell'integrità";
+
+/*
+   Localizable.strings
+   OTPAuth
+
+   Created by Dave MacLachlan on 2011/4/12.
+   Copyright 2011 Google Inc. All rights reserved.
+ */
+

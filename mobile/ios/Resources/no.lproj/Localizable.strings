@@ -1,0 +1,67 @@
+/* iPhone Terms of Service Table Item Title */
+"Terms of Service" = "Vilkår for bruk";
+/* iPhone Privacy Policy Table Item Title */
+"Privacy Policy" = "Personvern";
+/* iPhone Legal Notices Table Item Title */
+"Legal Notices" = "Juridiske merknader";
+/* iPhone Notification that a web page cannot be loaded */
+"Unable to load webpage." = "Kan ikke laste inn nettside.";
+/* iPhone OK Button */
+"OK" = "OK";
+/* iPhone Add Token Message */
+"Do you want to add the token named “%@”?" = "Vil du legge til tokenet med navnet «%@»?";
+/* iPhone Negative response to adding a token query. */
+"No" = "Nei";
+/* iPhone Positive response to adding a token query. */
+"Yes" = "Ja";
+/* iPhone Alert title describing a bad key */
+"Invalid Key" = "Ugyldig nøkkel";
+/* iPhone Alert describing invalid key */
+"The key '%@' is invalid." = "Nøkkelen «%@» er ugyldig.";
+/* iPhone Alert describing missing key */
+"You must enter a key." = "Du må angi en nøkkel.";
+/* iPhone Button title to try again */
+"Try Again" = "Prøv på nytt";
+/* iPhone Cancel button for taking pictures */
+"Cancel" = "Avbryt";
+/* iPhone Alert title describing a bad barcode */
+"Invalid Barcode" = "Ugyldig strekkode";
+/* iPhone Alert describing invalid barcode type. */
+"The barcode '%@' is not a valid authentication token barcode." = "Strekkoden «%@» er ikke en gyldig strekkode for autentiseringstoken.";
+/* iPhone Title for welcome screen */
+"Welcome" = "Velkommen";
+/* iPhone Welcome text */
+"Welcome_label" = "Google-autentisering genererer bekreftelseskoder som gir større sikkerhet når du logger på.\n\nFor å bruke Google-autentisering, må du først legge til en konto ved å trykke på:";
+/* iPhone Legal Information Button Title */
+"Legal Information" = "Juridisk informasjon";
+/* iPhone Short Product Name */
+"Authenticator" = "Autentisering";
+/* iPhone Product Name */
+"Google Authenticator" = "Google-autentisering";
+/* iPhone Add Token Navigation Screen Title and Alert Title */
+"Add Token" = "Legg til token";
+/* iPhone Time Based Account Type */
+"Time Based" = "Tidsbasert";
+/* iPhone Counter Based Account Type */
+"Counter Based" = "Eksternenhetsbasert";
+/* iPhone Label for Account field */
+"Account:" = "Konto:";
+/* iPhone Placeholder string for used acccount */
+"user@example.com" = "user@example.com";
+/* iPhone Label for Key field */
+"Key:" = "Nøkkel:";
+/* iPhone Placeholder string for key field */
+"Enter your key" = "Angi nøkkelen";
+/* iPhone Scan Barcode button title */
+"Scan Barcode" = "Skann strekkode";
+/* iPhone Integerity Check Value label */
+"Integrity Check Value" = "Integrity Check Value";
+
+/*
+   Localizable.strings
+   OTPAuth
+
+   Created by Dave MacLachlan on 2011/4/12.
+   Copyright 2011 Google Inc. All rights reserved.
+ */
+

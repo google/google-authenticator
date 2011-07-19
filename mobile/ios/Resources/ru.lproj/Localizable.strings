@@ -1,0 +1,67 @@
+/* iPhone Terms of Service Table Item Title */
+"Terms of Service" = "Условия использования";
+/* iPhone Privacy Policy Table Item Title */
+"Privacy Policy" = "Политика конфиденциальности";
+/* iPhone Legal Notices Table Item Title */
+"Legal Notices" = "Юридические уведомления";
+/* iPhone Notification that a web page cannot be loaded */
+"Unable to load webpage." = "Не удалось загрузить веб-страницу.";
+/* iPhone OK Button */
+"OK" = "ОК";
+/* iPhone Add Token Message */
+"Do you want to add the token named “%@”?" = "Добавить токен \"%@\"?";
+/* iPhone Negative response to adding a token query. */
+"No" = "Нет";
+/* iPhone Positive response to adding a token query. */
+"Yes" = "Да";
+/* iPhone Alert title describing a bad key */
+"Invalid Key" = "Недействительный ключ";
+/* iPhone Alert describing invalid key */
+"The key '%@' is invalid." = "Ключ \"%@\" недействителен.";
+/* iPhone Alert describing missing key */
+"You must enter a key." = "Необходимо ввести ключ.";
+/* iPhone Button title to try again */
+"Try Again" = "Повторить попытку";
+/* iPhone Cancel button for taking pictures */
+"Cancel" = "Отмена";
+/* iPhone Alert title describing a bad barcode */
+"Invalid Barcode" = "Недопустимый штрихкод";
+/* iPhone Alert describing invalid barcode type. */
+"The barcode '%@' is not a valid authentication token barcode." = "Штрихкод \"%@\" не является действительным токеном аутентификации.";
+/* iPhone Title for welcome screen */
+"Welcome" = "Добро пожаловать";
+/* iPhone Welcome text */
+"Welcome_label" = "Google Authenticator обеспечивает дополнительную безопасность аккаунта с помощью сгенерированных кодов.\n\nЧтобы использовать Google Authenticator, необходимо добавить аккаунт, нажав:";
+/* iPhone Legal Information Button Title */
+"Legal Information" = "Юридическая информация";
+/* iPhone Short Product Name */
+"Authenticator" = "Authenticator";
+/* iPhone Product Name */
+"Google Authenticator" = "Google Authenticator";
+/* iPhone Add Token Navigation Screen Title and Alert Title */
+"Add Token" = "Добавить токен";
+/* iPhone Time Based Account Type */
+"Time Based" = "По времени";
+/* iPhone Counter Based Account Type */
+"Counter Based" = "По счетчику";
+/* iPhone Label for Account field */
+"Account:" = "Аккаунт:";
+/* iPhone Placeholder string for used acccount */
+"user@example.com" = "user@example.com";
+/* iPhone Label for Key field */
+"Key:" = "Ключ:";
+/* iPhone Placeholder string for key field */
+"Enter your key" = "Введите ключ";
+/* iPhone Scan Barcode button title */
+"Scan Barcode" = "Сканировать штрихкод";
+/* iPhone Integerity Check Value label */
+"Integrity Check Value" = "Integrity Check Value";
+
+/*
+   Localizable.strings
+   OTPAuth
+
+   Created by Dave MacLachlan on 2011/4/12.
+   Copyright 2011 Google Inc. All rights reserved.
+ */
+

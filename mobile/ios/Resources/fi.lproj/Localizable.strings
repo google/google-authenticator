@@ -1,0 +1,67 @@
+/* iPhone Terms of Service Table Item Title */
+"Terms of Service" = "Käyttöehdot";
+/* iPhone Privacy Policy Table Item Title */
+"Privacy Policy" = "Tietosuojakäytäntö";
+/* iPhone Legal Notices Table Item Title */
+"Legal Notices" = "Laki-ilmoitukset";
+/* iPhone Notification that a web page cannot be loaded */
+"Unable to load webpage." = "Sivua ei voi ladata.";
+/* iPhone OK Button */
+"OK" = "Ok";
+/* iPhone Add Token Message */
+"Do you want to add the token named “%@”?" = "Haluatko lisätä tunnuksen %@?";
+/* iPhone Negative response to adding a token query. */
+"No" = "Ei";
+/* iPhone Positive response to adding a token query. */
+"Yes" = "Kyllä";
+/* iPhone Alert title describing a bad key */
+"Invalid Key" = "Virheellinen avain";
+/* iPhone Alert describing invalid key */
+"The key '%@' is invalid." = "Avain %@ ei kelpaa.";
+/* iPhone Alert describing missing key */
+"You must enter a key." = "Anna avain.";
+/* iPhone Button title to try again */
+"Try Again" = "Yritä uudelleen";
+/* iPhone Cancel button for taking pictures */
+"Cancel" = "Peruuta";
+/* iPhone Alert title describing a bad barcode */
+"Invalid Barcode" = "Viivakoodi ei kelpaa";
+/* iPhone Alert describing invalid barcode type. */
+"The barcode '%@' is not a valid authentication token barcode." = "Viivakoodi %@ ei ole kelvollinen todennustunnuksen koodi.";
+/* iPhone Title for welcome screen */
+"Welcome" = "Tervetuloa";
+/* iPhone Welcome text */
+"Welcome_label" = "Google Authenticator luo vahvistuskoodeja, jotka tarjoavat lisäsuojaa kirjautuessasi palveluihin.\n\nJos haluat käyttää Google Authenticatoria, lisää tili painamalla:";
+/* iPhone Legal Information Button Title */
+"Legal Information" = "Lakitiedot";
+/* iPhone Short Product Name */
+"Authenticator" = "Authenticator";
+/* iPhone Product Name */
+"Google Authenticator" = "Google Authenticator";
+/* iPhone Add Token Navigation Screen Title and Alert Title */
+"Add Token" = "Lisää tunnus";
+/* iPhone Time Based Account Type */
+"Time Based" = "Aikaan perustuva";
+/* iPhone Counter Based Account Type */
+"Counter Based" = "Laskuriin perustuva";
+/* iPhone Label for Account field */
+"Account:" = "Tili:";
+/* iPhone Placeholder string for used acccount */
+"user@example.com" = "käyttäjä@example.com";
+/* iPhone Label for Key field */
+"Key:" = "Avain:";
+/* iPhone Placeholder string for key field */
+"Enter your key" = "Anna avain";
+/* iPhone Scan Barcode button title */
+"Scan Barcode" = "Lue viivakoodi";
+/* iPhone Integerity Check Value label */
+"Integrity Check Value" = "Integrity Check Value";
+
+/*
+   Localizable.strings
+   OTPAuth
+
+   Created by Dave MacLachlan on 2011/4/12.
+   Copyright 2011 Google Inc. All rights reserved.
+ */
+

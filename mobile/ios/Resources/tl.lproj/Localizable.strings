@@ -1,0 +1,67 @@
+/* iPhone Terms of Service Table Item Title */
+"Terms of Service" = "Mga Tuntunin ng Serbisyo";
+/* iPhone Privacy Policy Table Item Title */
+"Privacy Policy" = "Patakaran sa Privacy";
+/* iPhone Legal Notices Table Item Title */
+"Legal Notices" = "Mga Legal na Abiso";
+/* iPhone Notification that a web page cannot be loaded */
+"Unable to load webpage." = "Hindi magawang mag-load ng webpage.";
+/* iPhone OK Button */
+"OK" = "OK";
+/* iPhone Add Token Message */
+"Do you want to add the token named “%@”?" = "Nais mo bang idagdag ang token na pinangalanang “%@”?";
+/* iPhone Negative response to adding a token query. */
+"No" = "Hindi";
+/* iPhone Positive response to adding a token query. */
+"Yes" = "Oo";
+/* iPhone Alert title describing a bad key */
+"Invalid Key" = "Di-wastong Key";
+/* iPhone Alert describing invalid key */
+"The key '%@' is invalid." = "Di-wasto ang key na '%@'.";
+/* iPhone Alert describing missing key */
+"You must enter a key." = "Dapat kang maglagay ng key.";
+/* iPhone Button title to try again */
+"Try Again" = "Subukang Muli";
+/* iPhone Cancel button for taking pictures */
+"Cancel" = "Kanselahin";
+/* iPhone Alert title describing a bad barcode */
+"Invalid Barcode" = "Di-wastong Barcode";
+/* iPhone Alert describing invalid barcode type. */
+"The barcode '%@' is not a valid authentication token barcode." = "Ang barcode na '%@' ay hindi wastong barcode ng token ng pagpapatotoo.";
+/* iPhone Title for welcome screen */
+"Welcome" = "Maligayang pagdating";
+/* iPhone Welcome text */
+"Welcome_label" = "Binubuo ng Google Authenticator ang mga verification code na nagbibigay ng karagdagang seguridad kapag nagsa-sign in.\n\nUpang makagamit ng Google Authenticator dapat ka munang magdagdag ng account sa pamamagitan ng pagpindot sa:";
+/* iPhone Legal Information Button Title */
+"Legal Information" = "Legal na Impormasyon";
+/* iPhone Short Product Name */
+"Authenticator" = "Authenticator";
+/* iPhone Product Name */
+"Google Authenticator" = "Google Authenticator";
+/* iPhone Add Token Navigation Screen Title and Alert Title */
+"Add Token" = "Magdagdag ng Token";
+/* iPhone Time Based Account Type */
+"Time Based" = "Batay sa Oras";
+/* iPhone Counter Based Account Type */
+"Counter Based" = "Batay sa Tagabilang";
+/* iPhone Label for Account field */
+"Account:" = "Account:";
+/* iPhone Placeholder string for used acccount */
+"user@example.com" = "user@example.com";
+/* iPhone Label for Key field */
+"Key:" = "Key:";
+/* iPhone Placeholder string for key field */
+"Enter your key" = "Ilagay ang iyong key";
+/* iPhone Scan Barcode button title */
+"Scan Barcode" = "I-scan ang Barcode";
+/* iPhone Integerity Check Value label */
+"Integrity Check Value" = "Integrity Check Value";
+
+/*
+   Localizable.strings
+   OTPAuth
+
+   Created by Dave MacLachlan on 2011/4/12.
+   Copyright 2011 Google Inc. All rights reserved.
+ */
+

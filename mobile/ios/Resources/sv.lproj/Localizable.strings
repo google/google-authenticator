@@ -1,0 +1,67 @@
+/* iPhone Terms of Service Table Item Title */
+"Terms of Service" = "Användarvillkor";
+/* iPhone Privacy Policy Table Item Title */
+"Privacy Policy" = "Sekretesspolicy";
+/* iPhone Legal Notices Table Item Title */
+"Legal Notices" = "Juridiska meddelanden";
+/* iPhone Notification that a web page cannot be loaded */
+"Unable to load webpage." = "Webbsidan kan inte läsas in.";
+/* iPhone OK Button */
+"OK" = "OK";
+/* iPhone Add Token Message */
+"Do you want to add the token named “%@”?" = "Vill du lägga till token med namnet %@?";
+/* iPhone Negative response to adding a token query. */
+"No" = "Nej";
+/* iPhone Positive response to adding a token query. */
+"Yes" = "Ja";
+/* iPhone Alert title describing a bad key */
+"Invalid Key" = "Ogiltig nyckel";
+/* iPhone Alert describing invalid key */
+"The key '%@' is invalid." = "Nyckeln %@ är ogiltig.";
+/* iPhone Alert describing missing key */
+"You must enter a key." = "Du måste ange en nyckel.";
+/* iPhone Button title to try again */
+"Try Again" = "Försök igen";
+/* iPhone Cancel button for taking pictures */
+"Cancel" = "Avbryt";
+/* iPhone Alert title describing a bad barcode */
+"Invalid Barcode" = "Ogiltig streckkod";
+/* iPhone Alert describing invalid barcode type. */
+"The barcode '%@' is not a valid authentication token barcode." = "Streckkoden %@ är inte en giltig tokenstreckkod för autentisering.";
+/* iPhone Title for welcome screen */
+"Welcome" = "Välkommen";
+/* iPhone Welcome text */
+"Welcome_label" = "Google Authenticator genererar verifieringskoder som gör det säkrare att logga in.\n\nOm du vill använda Google Authenticator lägger du först till ett konto genom att trycka på:";
+/* iPhone Legal Information Button Title */
+"Legal Information" = "Juridisk information";
+/* iPhone Short Product Name */
+"Authenticator" = "Authenticator";
+/* iPhone Product Name */
+"Google Authenticator" = "Google Authenticator";
+/* iPhone Add Token Navigation Screen Title and Alert Title */
+"Add Token" = "Lägg till token";
+/* iPhone Time Based Account Type */
+"Time Based" = "Tidsbaserad";
+/* iPhone Counter Based Account Type */
+"Counter Based" = "Räkningsbaserad";
+/* iPhone Label for Account field */
+"Account:" = "Konto:";
+/* iPhone Placeholder string for used acccount */
+"user@example.com" = "user@example.com";
+/* iPhone Label for Key field */
+"Key:" = "Nyckel:";
+/* iPhone Placeholder string for key field */
+"Enter your key" = "Ange nyckel";
+/* iPhone Scan Barcode button title */
+"Scan Barcode" = "Läs av streckkod";
+/* iPhone Integerity Check Value label */
+"Integrity Check Value" = "Integrity Check Value";
+
+/*
+   Localizable.strings
+   OTPAuth
+
+   Created by Dave MacLachlan on 2011/4/12.
+   Copyright 2011 Google Inc. All rights reserved.
+ */
+

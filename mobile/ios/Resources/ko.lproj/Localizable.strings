@@ -1,0 +1,67 @@
+/* iPhone Terms of Service Table Item Title */
+"Terms of Service" = "서비스 약관";
+/* iPhone Privacy Policy Table Item Title */
+"Privacy Policy" = "개인정보취급방침";
+/* iPhone Legal Notices Table Item Title */
+"Legal Notices" = "법적 고지";
+/* iPhone Notification that a web page cannot be loaded */
+"Unable to load webpage." = "웹페이지를 로드할 수 없습니다.";
+/* iPhone OK Button */
+"OK" = "확인";
+/* iPhone Add Token Message */
+"Do you want to add the token named “%@”?" = "토큰(이름: '%@')을 추가하시겠습니까?";
+/* iPhone Negative response to adding a token query. */
+"No" = "아니요";
+/* iPhone Positive response to adding a token query. */
+"Yes" = "예";
+/* iPhone Alert title describing a bad key */
+"Invalid Key" = "잘못된 키";
+/* iPhone Alert describing invalid key */
+"The key '%@' is invalid." = "키('%@')가 잘못되었습니다.";
+/* iPhone Alert describing missing key */
+"You must enter a key." = "키를 입력해야 합니다.";
+/* iPhone Button title to try again */
+"Try Again" = "다시 시도하기";
+/* iPhone Cancel button for taking pictures */
+"Cancel" = "취소";
+/* iPhone Alert title describing a bad barcode */
+"Invalid Barcode" = "잘못된 바코드";
+/* iPhone Alert describing invalid barcode type. */
+"The barcode '%@' is not a valid authentication token barcode." = "바코드('%@')가 잘못된 인증 토큰 바코드입니다.";
+/* iPhone Title for welcome screen */
+"Welcome" = "시작하기";
+/* iPhone Welcome text */
+"Welcome_label" = "Google OTP는 로그인할 때 보안을 강화하는 인증 코드를 생성합니다.\n\nGoogle OTP를 사용하려면 먼저 다음을 눌러 계정을 추가해야 합니다.";
+/* iPhone Legal Information Button Title */
+"Legal Information" = "법률 정보";
+/* iPhone Short Product Name */
+"Authenticator" = "OTP";
+/* iPhone Product Name */
+"Google Authenticator" = "Google OTP";
+/* iPhone Add Token Navigation Screen Title and Alert Title */
+"Add Token" = "토큰 추가";
+/* iPhone Time Based Account Type */
+"Time Based" = "시간 기준";
+/* iPhone Counter Based Account Type */
+"Counter Based" = "카운터 기준";
+/* iPhone Label for Account field */
+"Account:" = "계정:";
+/* iPhone Placeholder string for used acccount */
+"user@example.com" = "user@example.com";
+/* iPhone Label for Key field */
+"Key:" = "키:";
+/* iPhone Placeholder string for key field */
+"Enter your key" = "키를 입력하세요.";
+/* iPhone Scan Barcode button title */
+"Scan Barcode" = "바코드 스캔";
+/* iPhone Integerity Check Value label */
+"Integrity Check Value" = "Integrity Check Value";
+
+/*
+   Localizable.strings
+   OTPAuth
+
+   Created by Dave MacLachlan on 2011/4/12.
+   Copyright 2011 Google Inc. All rights reserved.
+ */
+
