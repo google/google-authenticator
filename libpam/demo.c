@@ -18,6 +18,7 @@
 
 #include <assert.h>
 #include <fcntl.h>
+#include <security/pam_appl.h>
 #include <security/pam_modules.h>
 #include <setjmp.h>
 #include <signal.h>
@@ -70,7 +71,11 @@ static int conversation(int num_msg, const struct pam_message **msg,
   return PAM_CONV_ERR;
 }
 
+#ifdef sun
+int pam_get_item(const pam_handle_t *pamh, int item_type,       void **item) {
+#else
 int pam_get_item(const pam_handle_t *pamh, int item_type, const void **item) {
+#endif
   switch (item_type) {
     case PAM_SERVICE: {
       static const char *service = "google_authenticator_demo";

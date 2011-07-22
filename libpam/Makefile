@@ -16,6 +16,12 @@
 
 .SUFFIXES: .so
 
+CC ?= gcc
+DEF_CFLAGS := $(shell [ `uname` = SunOS ] &&                                  \
+            echo ' -D_POSIX_PTHREAD_SEMANTICS -D_REENTRANT -DBYTE_ORDER=4321')\
+              $(CFLAGS)
+DEF_LDFLAGS := $(shell [ `uname` = SunOS ] && echo ' -mimpure-text') $(LDFLAGS)
+
 all: google-authenticator pam_google_authenticator.so demo                    \
      pam_google_authenticator_unittest
 
@@ -47,16 +53,16 @@ clean:
 	               pam_google_authenticator_unittest
 
 google-authenticator: google-authenticator.o base32.o hmac.o sha1.o
-	$(CC) -g $(LDFLAGS) $(shell [ -f /usr/lib/libdl.so ] && echo " -ldl") \
-	      -o $@ $+
+	$(CC) -g $(DEF_LDFLAGS) $(shell [ -f /usr/lib/libdl.so ] &&           \
+	      echo " -ldl") -o $@ $+
 
 demo: demo.o pam_google_authenticator_demo.o base32.o hmac.o sha1.o
-	$(CC) -g $(LDFLAGS) -rdynamic                                         \
+	$(CC) -g $(DEF_LDFLAGS) -rdynamic                                     \
 	      $(shell [ -f /usr/lib/libdl.so ] && echo " -ldl") -o $@ $+
 
 pam_google_authenticator_unittest: pam_google_authenticator_unittest.o        \
                                    base32.o hmac.o sha1.o
-	$(CC) -g $(LDFLAGS) -rdynamic -lc                                     \
+	$(CC) -g $(DEF_LDFLAGS) -rdynamic -lc                                 \
               $(shell [ -f /usr/lib/libdl.so ] && echo " -ldl")               \
               -o $@ $+
 
@@ -66,10 +72,11 @@ pam_google_authenticator_testing.so: base32.o hmac.o sha1.o
 pam_google_authenticator.o: pam_google_authenticator.c base32.h hmac.h sha1.h
 pam_google_authenticator_demo.o: pam_google_authenticator.c base32.h hmac.h   \
 	                         sha1.h
-	$(CC) -DDEMO --std=gnu99 -Wall -O2 -g -fPIC -c $(CFLAGS) -o $@ $<
+	$(CC) -DDEMO --std=gnu99 -Wall -O2 -g -fPIC -c $(DEF_CFLAGS) -o $@ $<
 pam_google_authenticator_testing.o: pam_google_authenticator.c base32.h       \
                                     hmac.h sha1.h
-	$(CC) -DTESTING --std=gnu99 -Wall -O2 -g -fPIC -c $(CFLAGS) -o $@ $<
+	$(CC) -DTESTING --std=gnu99 -Wall -O2 -g -fPIC -c $(DEF_CFLAGS)       \
+              -o $@ $<
 pam_google_authenticator_unittest.o: pam_google_authenticator_unittest.c      \
                                      pam_google_authenticator_testing.so      \
                                      base32.h hmac.h sha1.h
@@ -80,6 +87,6 @@ hmac.o: hmac.c hmac.h sha1.h
 sha1.o: sha1.c sha1.h
 
 .c.o:
-	$(CC) --std=gnu99 -Wall -O2 -g -fPIC -c $(CFLAGS) -o $@ $<
+	$(CC) --std=gnu99 -Wall -O2 -g -fPIC -c $(DEF_CFLAGS) -o $@ $<
 .o.so:
-	$(CC) -shared -g $(LDFLAGS) -o $@ $+
+	$(CC) -shared -g $(DEF_LDFLAGS) -o $@ $+

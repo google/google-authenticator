@@ -36,8 +36,17 @@
 #define HAS_SETFSUID
 #endif
 
+#ifndef PAM_EXTERN
+#define PAM_EXTERN
+#endif
+
+#if !defined(LOG_AUTHPRIV) && defined(LOG_AUTH)
+#define LOG_AUTHPRIV LOG_AUTH
+#endif
+
 #define PAM_SM_AUTH
 #define PAM_SM_SESSION
+#include <security/pam_appl.h>
 #include <security/pam_modules.h>
 
 #include "base32.h"
