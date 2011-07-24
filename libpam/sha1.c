@@ -46,8 +46,14 @@
 
 #include "sha1.h"
 
-#ifndef BYTE_ORDER
+#if !defined(BYTE_ORDER)
+#if defined(__BIG_ENDIAN__)
+#define BYTE_ORDER 4321
+#elif defined(__LITTLE_ENDIAN__)
+#define BYTE_ORDER 1234
+#else
 #error Need to define BYTE_ORDER
+#endif
 #endif
 
 #ifndef TRUNC32

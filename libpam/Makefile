@@ -16,9 +16,12 @@
 
 .SUFFIXES: .so
 
-CC ?= gcc
+ifeq ($(origin CC), default)
+  CC := gcc
+endif
+
 DEF_CFLAGS := $(shell [ `uname` = SunOS ] &&                                  \
-            echo ' -D_POSIX_PTHREAD_SEMANTICS -D_REENTRANT -DBYTE_ORDER=4321')\
+                echo ' -D_POSIX_PTHREAD_SEMANTICS -D_REENTRANT')              \
               $(CFLAGS)
 DEF_LDFLAGS := $(shell [ `uname` = SunOS ] && echo ' -mimpure-text') $(LDFLAGS)
 
