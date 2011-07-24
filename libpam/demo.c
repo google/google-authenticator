@@ -72,10 +72,12 @@ static int conversation(int num_msg, const struct pam_message **msg,
 }
 
 #ifdef sun
-int pam_get_item(const pam_handle_t *pamh, int item_type,       void **item) {
+#define PAM_CONST
 #else
-int pam_get_item(const pam_handle_t *pamh, int item_type, const void **item) {
+#define PAM_CONST const
 #endif
+int pam_get_item(const pam_handle_t *pamh, int item_type,
+                 PAM_CONST void **item) {
   switch (item_type) {
     case PAM_SERVICE: {
       static const char *service = "google_authenticator_demo";
