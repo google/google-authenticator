@@ -59,6 +59,7 @@
 typedef struct Params {
   const char *secret_filename_spec;
   int        noskewadj;
+  int        echocode;
 } Params;
 
 static char oom;
@@ -636,9 +637,9 @@ static int rate_limit(pam_handle_t *pamh, const char *secret_filename,
   return 0;
 }
 
-static int request_verification_code(pam_handle_t *pamh) {
+static int request_verification_code(pam_handle_t *pamh, int echocode) {
   // Query user for verification code
-  const struct pam_message msg = { .msg_style = PAM_PROMPT_ECHO_OFF,
+  const struct pam_message msg = { .msg_style = echocode,
                                    .msg       = "Verification code: " };
   const struct pam_message *msgs = &msg;
   struct pam_response *resp = NULL;
@@ -1073,12 +1074,15 @@ static int check_timebased_code(pam_handle_t *pamh, const char*secret_filename,
 
 static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
                       Params *params) {
+  params->echocode = PAM_PROMPT_ECHO_OFF;
   for (int i = 0; i < argc; ++i) {
     if (!memcmp(argv[i], "secret=", 7)) {
       free((void *)params->secret_filename_spec);
       params->secret_filename_spec = argv[i] + 7;
     } else if (!strcmp(argv[i], "noskewadj")) {
       params->noskewadj = 1;
+    } else if (!strcmp(argv[i], "echo-verification-code")) {
+      params->echocode = PAM_PROMPT_ECHO_ON;
     } else {
       log_message(LOG_ERR, pamh, "Unrecognized option \"%s\"", argv[i]);
       return -1;
@@ -1120,7 +1124,7 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
       (buf = read_file_contents(pamh, secret_filename, &fd, filesize)) &&
       (secret = get_shared_secret(pamh, secret_filename, buf, &secretLen)) &&
       (rate_limit(pamh, secret_filename, &updated, &buf) >= 0) &&
-      (code = request_verification_code(pamh)) >= 0) {
+      (code = request_verification_code(pamh, params.echocode)) >= 0) {
     // Check all possible types of verification codes.
     switch (check_scratch_codes(pamh, secret_filename, &updated, buf, code)) {
       case 1:

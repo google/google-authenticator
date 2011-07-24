@@ -42,12 +42,16 @@ static sigjmp_buf jmpbuf;
 
 static int conversation(int num_msg, const struct pam_message **msg,
                         struct pam_response **resp, void *appdata_ptr) {
-  if (num_msg == 1 && msg[0]->msg_style == PAM_PROMPT_ECHO_OFF) {
+  if (num_msg == 1 &&
+      (msg[0]->msg_style == PAM_PROMPT_ECHO_OFF ||
+       msg[0]->msg_style == PAM_PROMPT_ECHO_ON)) {
     *resp = malloc(sizeof(struct pam_response));
     assert(*resp);
     (*resp)->resp = calloc(1024, 0);
     struct termios termios = old_termios;
-    termios.c_lflag &= ~(ECHO|ECHONL);
+    if (msg[0]->msg_style == PAM_PROMPT_ECHO_OFF) {
+      termios.c_lflag &= ~(ECHO|ECHONL);
+    }
     sigsetjmp(jmpbuf, 1);
     jmpbuf_valid = 1;
     sigset_t mask;

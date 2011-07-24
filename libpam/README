@@ -47,3 +47,8 @@ you have to store the secret file in a non-standard location:
 would be a possible choice. Make sure to set appropriate permissions. You also
 have to tell your users to manually move their .google-authenticator file to
 this location.
+
+By default, the PAM module does not echo the verification code when it is
+entered by the user. In some situations, the administrator might prefer a
+different behavior. Pass the "echo-verification-code" option to the module
+in order to enable echoing.
