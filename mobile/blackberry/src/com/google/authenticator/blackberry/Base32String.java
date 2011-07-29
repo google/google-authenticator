@@ -31,7 +31,7 @@ public class Base32String {
     return INSTANCE;
   }
   
-  //32 alpha-numeric characters. Excluding 0, 1, O, and I
+  // 32 alpha-numeric characters.
   private String ALPHABET;
   private char[] DIGITS;
   private int MASK;
