@@ -309,6 +309,58 @@ int main(int argc, char *argv[]) {
   assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
   assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
 
+  // Set up secret file for counter-based codes.
+  assert(!chmod(fn, 0600));
+  assert((fd = open(fn, O_TRUNC | O_WRONLY)) >= 0);
+  assert(write(fd, secret, sizeof(secret)-1) == sizeof(secret)-1);
+  assert(write(fd, "\n\" HOTP_COUNTER 1\n", 18) == 18);
+  close(fd);
+
+  response = "293240";
+
+  // Check if we can log in when using a valid verification code
+  puts("Testing successful counter-based login");
+  assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
+
+  // Verify that the hotp counter incremented
+  assert((fd = open(fn, O_RDONLY)) >= 0);
+  memset(state_file_buf, 0, sizeof(state_file_buf));
+  assert(read(fd, state_file_buf, sizeof(state_file_buf)-1) > 0);
+  close(fd);
+  const char *hotp_counter = strstr(state_file_buf, "\" HOTP_COUNTER ");
+  assert(hotp_counter);
+  assert(!memcmp(hotp_counter + 15, "2\n", 2));
+
+  // Check if we can log in when using an invalid verification code (including
+  // the same code a second time)
+  puts("Testing failed counter-based login attempt");
+  assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
+
+  // Verify that the hotp counter incremented
+  assert((fd = open(fn, O_RDONLY)) >= 0);
+  memset(state_file_buf, 0, sizeof(state_file_buf));
+  assert(read(fd, state_file_buf, sizeof(state_file_buf)-1) > 0);
+  close(fd);
+  hotp_counter = strstr(state_file_buf, "\" HOTP_COUNTER ");
+  assert(hotp_counter);
+  assert(!memcmp(hotp_counter + 15, "3\n", 2));
+
+  response = "932068";
+
+  // Check if we can log in using a future valid verification code (using
+  // default window_size of 3)
+  puts("Testing successful future counter-based login");
+  assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
+
+  // Verify that the hotp counter incremented
+  assert((fd = open(fn, O_RDONLY)) >= 0);
+  memset(state_file_buf, 0, sizeof(state_file_buf));
+  assert(read(fd, state_file_buf, sizeof(state_file_buf)-1) > 0);
+  close(fd);
+  hotp_counter = strstr(state_file_buf, "\" HOTP_COUNTER ");
+  assert(hotp_counter);
+  assert(!memcmp(hotp_counter + 15, "6\n", 2));
+
   // Remove the temporarily created secret file
   unlink(fn);
 

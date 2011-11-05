@@ -520,6 +520,22 @@ static int set_cfg_value(pam_handle_t *pamh, const char *key, const char *val,
   return 0;
 }
 
+static long get_hotp_counter(pam_handle_t *pamh, const char *buf) {
+  const char *counter_str = get_cfg_value(pamh, "HOTP_COUNTER", buf);
+  if (counter_str == &oom) {
+    // Out of memory. This is a fatal error
+    return -1;
+  }
+
+  long counter = 0;
+  if (counter_str) {
+    counter = strtol(counter_str, NULL, 10);
+  }
+  free((void *)counter_str);
+
+  return counter;
+}
+
 static int rate_limit(pam_handle_t *pamh, const char *secret_filename,
                       int *updated, char **buf) {
   const char *value = get_cfg_value(pamh, "RATE_LIMIT", *buf);
@@ -1072,6 +1088,56 @@ static int check_timebased_code(pam_handle_t *pamh, const char*secret_filename,
   return -1;
 }
 
+/* Checks for counter based verification code. Returns -1 on error, 0 on success,
+ * and 1, if no counter based code had been entered, and subsequent tests should
+ * be applied.
+ */
+static int check_counterbased_code(pam_handle_t *pamh,
+                                   const char*secret_filename, int *updated,
+                                   char **buf, const uint8_t*secret,
+                                   int secretLen, int code, Params *params,
+                                   long hotp_counter) {
+  if (hotp_counter < 1) {
+    // The secret file did not actually contain information for a counter-based
+    // code. Return to caller and see if any other authentication methods
+    // apply.
+    return 1;
+  }
+
+  if (code < 0 || code >= 1000000) {
+    // All counter based verification codes are no longer than six digits.
+    return 1;
+  }
+
+  // Compute [window_size] verification codes and compare them with user input.
+  // Future codes are allowed in case the user computed but not use a code.
+  int window = window_size(pamh, secret_filename, *buf);
+  if (!window) {
+    return -1;
+  }
+  int increment = 0;
+  int result = -1;
+  for (int i = 0; i < window; ++i) {
+    unsigned int hash = compute_code(secret, secretLen, hotp_counter + i);
+    if (hash == (unsigned int)code) {
+      increment = i;
+      result = 0;
+    }
+  }
+
+  // Always increment by at least one because even a failed login attempt
+  // consumes a token.
+  char counter_str[40];
+  sprintf(counter_str, "%ld", hotp_counter + increment + 1);
+  if (set_cfg_value(pamh, "HOTP_COUNTER", counter_str, buf) < 0) {
+    return -1;
+  }
+
+  *updated = 1;
+
+  return result;
+}
+
 static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
                       Params *params) {
   params->echocode = PAM_PROMPT_ECHO_OFF;
@@ -1125,16 +1191,29 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
       (secret = get_shared_secret(pamh, secret_filename, buf, &secretLen)) &&
       (rate_limit(pamh, secret_filename, &updated, &buf) >= 0) &&
       (code = request_verification_code(pamh, params.echocode)) >= 0) {
+    long hotp_counter = get_hotp_counter(pamh, buf);
     // Check all possible types of verification codes.
     switch (check_scratch_codes(pamh, secret_filename, &updated, buf, code)) {
       case 1:
-        switch (check_timebased_code(pamh, secret_filename, &updated, &buf,
-                                     secret, secretLen, code, &params)) {
-          case 0:
-            rc = PAM_SUCCESS;
-            break;
-          default:
-            break;
+        if (hotp_counter > 0) {
+          switch (check_counterbased_code(pamh, secret_filename, &updated, &buf,
+                                          secret, secretLen, code, &params,
+                                          hotp_counter)) {
+            case 0:
+              rc = PAM_SUCCESS;
+              break;
+            default:
+              break;
+          }
+        } else {
+          switch (check_timebased_code(pamh, secret_filename, &updated, &buf,
+                                       secret, secretLen, code, &params)) {
+            case 0:
+              rc = PAM_SUCCESS;
+              break;
+            default:
+              break;
+          }
         }
         break;
       case 0:

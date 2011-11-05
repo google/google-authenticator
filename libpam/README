@@ -52,3 +52,9 @@ By default, the PAM module does not echo the verification code when it is
 entered by the user. In some situations, the administrator might prefer a
 different behavior. Pass the "echo-verification-code" option to the module
 in order to enable echoing.
+
+If you would like verification codes that are counter based instead of
+timebased, use the "google-authenticator" binary to generate a secret key in
+your home directory with the proper option.  In this mode, clock skew is
+irrelevant and the window size option now applies to how many codes beyond the
+current one that would be accepted, to reduce synchronization problems.

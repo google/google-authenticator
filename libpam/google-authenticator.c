@@ -113,7 +113,8 @@ static const char *getUserName(uid_t uid) {
   return user;
 }
 
-static const char *getURL(const char *secret, char **encoderURL) {
+static const char *getURL(const char *secret, char **encoderURL,
+                          const int use_totp) {
   uid_t uid = getuid();
   const char *user = getUserName(uid);
   char hostname[128] = { 0 };
@@ -121,13 +122,17 @@ static const char *getURL(const char *secret, char **encoderURL) {
     strcpy(hostname, "unix");
   }
   char *url = malloc(strlen(user) + strlen(hostname) + strlen(secret) + 80);
-  sprintf(url, "otpauth://totp/%s@%s?secret=%s", user, hostname, secret);
+  char totp = 'h';
+  if (use_totp) {
+    totp = 't';
+  }
+  sprintf(url, "otpauth://%cotp/%s@%s?secret=%s", totp, user, hostname, secret);
   if (encoderURL) {
     const char *encoder = "https://www.google.com/chart?chs=200x200&"
                           "chld=M|0&cht=qr&chl=";
     *encoderURL = malloc(strlen(encoder) + strlen(url) + 6);
-    sprintf(*encoderURL, "%sotpauth://totp/%s@%s%%3Fsecret%%3D%s",
-            encoder, user, hostname, secret);
+    sprintf(*encoderURL, "%sotpauth://%cotp/%s@%s%%3Fsecret%%3D%s",
+            encoder, totp, user, hostname, secret);
   }
   free((char *)user);
   return url;
@@ -141,9 +146,9 @@ static const char *getURL(const char *secret, char **encoderURL) {
 #define UTF8_TOPHALF      "\xE2\x96\x80"
 #define UTF8_BOTTOMHALF   "\xE2\x96\x84"
 
-static void displayQRCode(const char *secret) {
+static void displayQRCode(const char *secret, const int use_totp) {
   char *encoderURL;
-  const char *url = getURL(secret, &encoderURL);
+  const char *url = getURL(secret, &encoderURL, use_totp);
   puts(encoderURL);
 
   // Only newer systems have support for libqrencode. So, instead of requiring
@@ -258,8 +263,7 @@ static void displayQRCode(const char *secret) {
   free(encoderURL);
 }
 
-static char *maybeAddOption(const char *msg, char *buf, size_t nbuf,
-                            const char *option) {
+static int maybe(const char *msg) {
   printf("\n%s (y/n) ", msg);
   fflush(stdout);
   char ch;
@@ -267,13 +271,26 @@ static char *maybeAddOption(const char *msg, char *buf, size_t nbuf,
     ch = getchar();
   } while (ch == ' ' || ch == '\r' || ch == '\n');
   if (ch == 'y' || ch == 'Y') {
-    assert(strlen(buf) + strlen(option) < nbuf);
-    char *scratchCodes = strchr(buf, '\n');
-    assert(scratchCodes);
-    scratchCodes++;
-    memmove(scratchCodes + strlen(option), scratchCodes,
-            strlen(scratchCodes) + 1);
-    memcpy(scratchCodes, option, strlen(option));
+    return 1;
+  }
+  return 0;
+}
+
+static char *addOption(char *buf, size_t nbuf, const char *option) {
+  assert(strlen(buf) + strlen(option) < nbuf);
+  char *scratchCodes = strchr(buf, '\n');
+  assert(scratchCodes);
+  scratchCodes++;
+  memmove(scratchCodes + strlen(option), scratchCodes,
+          strlen(scratchCodes) + 1);
+  memcpy(scratchCodes, option, strlen(option));
+  return buf;
+}
+
+static char *maybeAddOption(const char *msg, char *buf, size_t nbuf,
+                            const char *option) {
+  if (maybe(msg)) {
+    buf = addOption(buf, nbuf, option);
   }
   return buf;
 }
@@ -285,13 +302,14 @@ int main(int argc, char *argv[]) {
     return 1;
   }
   uint8_t buf[SECRET_BITS/8 + SCRATCHCODES*BYTES_PER_SCRATCHCODE];
+  static const char hotp[]      = "\" HOTP_COUNTER 1\n";
   static const char totp[]      = "\" TOTP_AUTH\n";
   static const char disallow[]  = "\" DISALLOW_REUSE\n";
   static const char window[]    = "\" WINDOW_SIZE 17\n";
   static const char ratelimit[] = "\" RATE_LIMIT 3 30\n";
   char    secret[(SECRET_BITS + BITS_PER_BASE32_CHAR-1)/BITS_PER_BASE32_CHAR +
                  1 /* newline */ +
-                 sizeof(totp) +
+                 sizeof(hotp) +  // hotp and totp are mutually exclusive.
                  sizeof(disallow) +
                  sizeof(window) +
                  sizeof(ratelimit) +
@@ -304,12 +322,17 @@ int main(int argc, char *argv[]) {
   }
 
   base32_encode(buf, SECRET_BITS/8, (uint8_t *)secret, sizeof(secret));
-  displayQRCode(secret);
+  int use_totp = maybe("Do you want authentication tokens to be time-based");
+  displayQRCode(secret, use_totp);
   strcat(secret, "\n");
   printf("Your new secret key is: %s", secret);
   printf("Your verification code is %06d\n", generateCode(secret, 0));
   printf("Your emergency scratch codes are:\n");
-  strcat(secret, totp);
+  if (use_totp) {
+    strcat(secret, totp);
+  } else {
+    strcat(secret, hotp);
+  }
   for (int i = 0; i < SCRATCHCODES; ++i) {
   new_scratch_code:;
     int scratch = 0;
@@ -359,19 +382,29 @@ int main(int argc, char *argv[]) {
     tmp_fn[-1] = '\000';
 
     // Add optional flags.
-    maybeAddOption("Do you want to disallow multiple uses of the same "
-                   "authentication\ntoken? This restricts you to one login "
-                   "about every 30s, but it increases\nyour chances to notice "
-                   "or even prevent man-in-the-middle attacks",
-                   secret, sizeof(secret), disallow);
-    maybeAddOption("By default, tokens are good for 30 seconds and in order "
-                   "to compensate for\npossible time-skew between the client "
-                   "and the server, we allow an extra\ntoken before and after "
-                   "the current time. If you experience problems with poor\n"
-                   "time synchronization, you can increase the window from "
-                   "its default\nsize of 1:30min to about 4min. Do you want "
-                   "to do so",
-                   secret, sizeof(secret), window);
+    if (use_totp) {
+      maybeAddOption("Do you want to disallow multiple uses of the same "
+                     "authentication\ntoken? This restricts you to one login "
+                     "about every 30s, but it increases\nyour chances to "
+                     "notice or even prevent man-in-the-middle attacks",
+                     secret, sizeof(secret), disallow);
+      maybeAddOption("By default, tokens are good for 30 seconds and in order "
+                     "to compensate for\npossible time-skew between the client "
+                     "and the server, we allow an extra\ntoken before and "
+                     "after the current time. If you experience problems with "
+                     "poor\ntime synchronization, you can increase the window "
+                     "from its default\nsize of 1:30min to about 4min. Do you "
+                     "want to do so",
+                     secret, sizeof(secret), window);
+    } else {
+      maybeAddOption("By default, three tokens are valid at any one time.  "
+                     "This accounts for\ngenerated-but-not-used tokens and "
+                     "failed login attempts. In order to\ndecrease the "
+                     "likelihood of synchronization problems, this window "
+                     "can be\nincreased from its default size of 3 to 17. Do "
+                     "you want to do so",
+                     secret, sizeof(secret), window);
+    }
     maybeAddOption("If the computer that you are logging into isn't hardened "
                    "against brute-force\nlogin attempts, you can enable "
                    "rate-limiting for the authentication module.\nBy default, "
