@@ -533,14 +533,16 @@ static int rate_limit(pam_handle_t *pamh, const char *secret_filename,
 
   // Parse both the maximum number of login attempts and the time interval
   // that we are looking at.
-  const char *endptr = value;
+  const char *endptr = value, *ptr;
   int attempts, interval;
   errno = 0;
-  if (((attempts = (int)strtoul(endptr, (char **)&endptr, 10)) < 1) ||
+  if (((attempts = (int)strtoul(ptr = endptr, (char **)&endptr, 10)) < 1) ||
+      ptr == endptr ||
       attempts > 100 ||
       errno ||
       (*endptr != ' ' && *endptr != '\t') ||
-      ((interval = (int)strtoul(endptr, (char **)&endptr, 10)) < 1) ||
+      ((interval = (int)strtoul(ptr = endptr, (char **)&endptr, 10)) < 1) ||
+      ptr == endptr ||
       interval > 3600 ||
       errno) {
     free((void *)value);
@@ -564,7 +566,9 @@ static int rate_limit(pam_handle_t *pamh, const char *secret_filename,
     unsigned int timestamp;
     errno = 0;
     if ((*endptr != ' ' && *endptr != '\t') ||
-        ((timestamp = (int)strtoul(endptr, (char **)&endptr, 10)), errno)) {
+        ((timestamp = (int)strtoul(ptr = endptr, (char **)&endptr, 10)),
+         errno) ||
+        ptr == endptr) {
       free((void *)value);
       free(timestamps);
       log_message(LOG_ERR, pamh, "Invalid list of timestamps in RATE_LIMIT. "
@@ -645,11 +649,12 @@ static int request_verification_code(pam_handle_t *pamh, int echocode) {
   struct pam_response *resp = NULL;
   int retval = converse(pamh, 1, &msgs, &resp);
   int code = -1;
-  char *endptr = NULL;
+  char *endptr = NULL, *ptr;
   errno = 0;
   if (retval != PAM_SUCCESS || resp == NULL || resp[0].resp == NULL ||
       *resp[0].resp == '\000' ||
-      ((code = (int)strtoul(resp[0].resp, &endptr, 10)), *endptr) ||
+      ((code = (int)strtoul(ptr = resp[0].resp, &endptr, 10)), *endptr) ||
+      ptr == endptr ||
       errno) {
     log_message(LOG_ERR, pamh, "Did not receive verification code from user");
     code = -1;

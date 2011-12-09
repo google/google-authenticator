@@ -81,10 +81,14 @@ int pam_get_item(const pam_handle_t *pamh, int item_type,
   }
 }
 
-static void print_diagnostics(int signo) {
+static const char *get_error_msg(void) {
   const char *(*get_error_msg)(void) =
     (const char *(*)(void))dlsym(pam_module, "get_error_msg");
-  if (get_error_msg && *get_error_msg()) {
+  return get_error_msg ? get_error_msg() : "";
+}
+
+static void print_diagnostics(int signo) {
+  if (*get_error_msg()) {
     fprintf(stderr, "%s\n", get_error_msg());
   }
   _exit(1);
@@ -271,13 +275,30 @@ int main(int argc, char *argv[]) {
   }
   set_time(10000 * 30);
   response = old_response;
-  assert((fd = open(fn, O_RDONLY)) >= 0);
+  assert(!chmod(fn, 0600));
+  assert((fd = open(fn, O_RDWR)) >= 0);
   memset(state_file_buf, 0, sizeof(state_file_buf));
   assert(read(fd, state_file_buf, sizeof(state_file_buf)-1) > 0);
-  close(fd);
   const char *rate_limit = strstr(state_file_buf, "\" RATE_LIMIT ");
   assert(rate_limit);
   assert(!memcmp(rate_limit + 13, "4 120 600060 600090 600120 600180\n", 35));
+  
+  // Test trailing space in RATE_LIMIT. This is considered a file format error.
+  char *eol = strchr(rate_limit, '\n');
+  *eol = ' ';
+  assert(!lseek(fd, 0, SEEK_SET));
+  assert(write(fd, state_file_buf, strlen(state_file_buf)) ==
+         strlen(state_file_buf));
+  close(fd);
+  assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
+  assert(!strncmp(get_error_msg(),
+                  "Invalid list of timestamps in RATE_LIMIT", 40));
+  *eol = '\n';
+  assert(!chmod(fn, 0600));
+  assert((fd = open(fn, O_WRONLY)) >= 0);
+  assert(write(fd, state_file_buf, strlen(state_file_buf)) ==
+         strlen(state_file_buf));
+  close(fd);
 
   // Test TIME_SKEW option
   puts("Testing TIME_SKEW");
