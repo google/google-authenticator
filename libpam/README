@@ -48,6 +48,17 @@ would be a possible choice. Make sure to set appropriate permissions. You also
 have to tell your users to manually move their .google-authenticator file to
 this location.
 
+In addtion to "${USER}", the "secret=" option also recognizes both "~" and
+"${HOME}" as short-hands for the user's home directory.
+
+When using the "secret=" option, you might want to also set the "user="
+option. The latter forces the PAM module to switch to a dedicated hard-coded
+user id prior to doing any file operations. When using the "user=" option, you
+must not include "~" or "${HOME}" in the filename.
+
+The "user=" option can also be useful if you want to authenticate users who do
+not have traditional UNIX accounts on your system.
+
 By default, the PAM module does not echo the verification code when it is
 entered by the user. In some situations, the administrator might prefer a
 different behavior. Pass the "echo-verification-code" option to the module

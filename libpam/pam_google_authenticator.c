@@ -18,6 +18,7 @@
 #define _GNU_SOURCE
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <pwd.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -60,6 +61,8 @@ typedef struct Params {
   const char *secret_filename_spec;
   int        noskewadj;
   int        echocode;
+  int        fixed_uid;
+  uid_t      uid;
 } Params;
 
 static char oom;
@@ -130,28 +133,31 @@ static char *get_secret_filename(pam_handle_t *pamh, const Params *params,
     ? params->secret_filename_spec : SECRET;
 
   // Obtain the user's id and home directory
-  struct passwd pwbuf, *pw;
-  #ifdef _SC_GETPW_R_SIZE_MAX
-  int len = sysconf(_SC_GETPW_R_SIZE_MAX);
-  if (len <= 0) {
-    len = 4096;
-  }
-  #else
-  int len = 4096;
-  #endif
-  char *buf = malloc(len);
+  struct passwd pwbuf, *pw = NULL;
+  char *buf = NULL;
   char *secret_filename = NULL;
-  *uid = -1;
-  if (buf == NULL ||
-      getpwnam_r(username, &pwbuf, buf, len, &pw) ||
-      !pw ||
-      !pw->pw_dir ||
-      *pw->pw_dir != '/') {
-  err:
-    log_message(LOG_ERR, pamh, "Failed to compute location of secret file");
-    free(buf);
-    free(secret_filename);
-    return NULL;
+  if (!params->fixed_uid) {
+    #ifdef _SC_GETPW_R_SIZE_MAX
+    int len = sysconf(_SC_GETPW_R_SIZE_MAX);
+    if (len <= 0) {
+      len = 4096;
+    }
+    #else
+    int len = 4096;
+    #endif
+    buf = malloc(len);
+    *uid = -1;
+    if (buf == NULL ||
+        getpwnam_r(username, &pwbuf, buf, len, &pw) ||
+        !pw ||
+        !pw->pw_dir ||
+        *pw->pw_dir != '/') {
+    err:
+      log_message(LOG_ERR, pamh, "Failed to compute location of secret file");
+      free(buf);
+      free(secret_filename);
+      return NULL;
+    }
   }
 
   // Expand filename specification to an actual filename.
@@ -166,11 +172,17 @@ static char *get_secret_filename(pam_handle_t *pamh, const Params *params,
     const char *subst = NULL;
     if (allow_tilde && *cur == '~') {
       var_len = 1;
+      if (!pw) {
+        goto err;
+      }
       subst = pw->pw_dir;
       var = cur;
     } else if (secret_filename[offset] == '$') {
       if (!memcmp(cur, "${HOME}", 7)) {
         var_len = 7;
+        if (!pw) {
+          goto err;
+        }
         subst = pw->pw_dir;
         var = cur;
       } else if (!memcmp(cur, "${USER}", 7)) {
@@ -198,8 +210,8 @@ static char *get_secret_filename(pam_handle_t *pamh, const Params *params,
     }
   }
 
+  *uid = params->fixed_uid ? params->uid : pw->pw_uid;
   free(buf);
-  *uid = pw->pw_uid;
   return secret_filename;
 }
 
@@ -221,20 +233,55 @@ static int setuser(int uid) {
   return old_uid;
 }
 
-static int drop_privileges(pam_handle_t *pamh, const char *username, int uid) {
+static int drop_privileges(pam_handle_t *pamh, const char *username, int uid,
+                           int *old_uid, int *old_gid) {
   // Try to become the new user. This might be necessary for NFS mounted home
   // directories.
-  int old_uid = setuser(uid);
-  if (old_uid < 0) {
+
+  // First, look up the user's default group
+  #ifdef _SC_GETPW_R_SIZE_MAX
+  int len = sysconf(_SC_GETPW_R_SIZE_MAX);
+  if (len <= 0) {
+    len = 4096;
+  }
+  #else
+  int len = 4096;
+  #endif
+  char *buf = malloc(len);
+  if (!buf) {
+    log_message(LOG_ERR, pamh, "Out of memory");
+    return -1;
+  }
+  struct passwd pwbuf, *pw;
+  if (getpwuid_r(uid, &pwbuf, buf, len, &pw) || !pw) {
+    log_message(LOG_ERR, pamh, "Cannot look up user id %d", uid);
+    free(buf);
+    return -1;
+  }
+  gid_t gid = pw->pw_gid;
+  free(buf);
+
+  int uid_o = setuser(uid);
+  if (uid_o < 0) {
     log_message(LOG_ERR, pamh, "Failed to change user id to \"%s\"", username);
     return -1;
   }
-  return old_uid;
+  int gid_o = getegid();
+  if (gid_o != gid && setegid(gid)) {
+    setuser(uid_o);
+    log_message(LOG_ERR, pamh,
+                "Failed to change group id for user \"%s\" to %d", username,
+                (int)gid);
+    return -1;
+  }
+  *old_uid = uid_o;
+  *old_gid = gid_o;
+  return 0;
 }
 
 static int open_secret_file(pam_handle_t *pamh, const char *secret_filename,
-                            const char *username, int uid, off_t *size,
-                            time_t *mtime) {
+                            struct Params *params, const char *username,
+                            int uid, off_t *size, time_t *mtime) {
   // Try to open "~/.google_authenticator"
   *size = 0;
   *mtime = 0;
@@ -254,8 +301,13 @@ static int open_secret_file(pam_handle_t *pamh, const char *secret_filename,
   if ((sb.st_mode & 03577) != 0400 ||
       !S_ISREG(sb.st_mode) ||
       sb.st_uid != (uid_t)uid) {
+    char buf[80];
+    if (params->fixed_uid) {
+      sprintf(buf, "user id %d", params->uid);
+      username = buf;
+    }
     log_message(LOG_ERR, pamh,
-                "Secret file \"%s\" must only be accessible by \"%s\"",
+                "Secret file \"%s\" must only be accessible by %s",
                 secret_filename, username);
     goto error;
   }
@@ -573,7 +625,7 @@ static int rate_limit(pam_handle_t *pamh, const char *secret_filename,
   if (!timestamps) {
   oom:
     free((void *)value);
-    log_message(LOG_ERR, pamh, "Out of memory!");
+    log_message(LOG_ERR, pamh, "Out of memory");
     return -1;
   }
   timestamps[0] = now;
@@ -721,13 +773,17 @@ static int check_scratch_codes(pam_handle_t *pamh, const char *secret_filename,
     if (errno ||
         ptr == endptr ||
         (*endptr != '\r' && *endptr != '\n' && *endptr) ||
-        scratchcode < 10*1000*1000) {
+        scratchcode  <  10*1000*1000 ||
+        scratchcode >= 100*1000*1000) {
       break;
     }
 
     // Check if the code matches
     if (scratchcode == code) {
       // Remove scratch code after using it
+      while (*endptr == '\n' || *endptr == '\r') {
+        ++endptr;
+      }
       memmove(ptr, endptr, strlen(endptr) + 1);
       memset(strrchr(ptr, '\000'), 0, endptr - ptr + 1);
 
@@ -1093,9 +1149,9 @@ static int check_timebased_code(pam_handle_t *pamh, const char*secret_filename,
   return -1;
 }
 
-/* Checks for counter based verification code. Returns -1 on error, 0 on success,
- * and 1, if no counter based code had been entered, and subsequent tests should
- * be applied.
+/* Checks for counter based verification code. Returns -1 on error, 0 on
+ * success, and 1, if no counter based code had been entered, and subsequent
+ * tests should be applied.
  */
 static int check_counterbased_code(pam_handle_t *pamh,
                                    const char*secret_filename, int *updated,
@@ -1143,6 +1199,38 @@ static int check_counterbased_code(pam_handle_t *pamh,
   return result;
 }
 
+static int parse_user(pam_handle_t *pamh, const char *name, uid_t *uid) {
+  char *endptr;
+  errno = 0;
+  long l = strtol(name, &endptr, 10);
+  if (!errno && endptr != name && l >= 0 && l <= INT_MAX) {
+    *uid = (uid_t)l;
+    return 0;
+  }
+  #ifdef _SC_GETPW_R_SIZE_MAX
+  int len   = sysconf(_SC_GETPW_R_SIZE_MAX);
+  if (len <= 0) {
+    len = 4096;
+  }
+  #else
+  int len   = 4096;
+  #endif
+  char *buf = malloc(len);
+  if (!buf) {
+    log_message(LOG_ERR, pamh, "Out of memory");
+    return -1;
+  }
+  struct passwd pwbuf, *pw;
+  if (getpwnam_r(name, &pwbuf, buf, len, &pw) || !pw) {
+    free(buf);
+    log_message(LOG_ERR, pamh, "Failed to look up user \"%s\"", name);
+    return -1;
+  }
+  *uid = pw->pw_uid;
+  free(buf);
+  return 0;
+}
+
 static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
                       Params *params) {
   params->echocode = PAM_PROMPT_ECHO_OFF;
@@ -1150,6 +1238,13 @@ static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
     if (!memcmp(argv[i], "secret=", 7)) {
       free((void *)params->secret_filename_spec);
       params->secret_filename_spec = argv[i] + 7;
+    } else if (!memcmp(argv[i], "user=", 5)) {
+      uid_t uid;
+      if (parse_user(pamh, argv[i] + 5, &uid) < 0) {
+        return -1;
+      }
+      params->fixed_uid = 1;
+      params->uid = uid;
     } else if (!strcmp(argv[i], "noskewadj")) {
       params->noskewadj = 1;
     } else if (!strcmp(argv[i], "echo-verification-code")) {
@@ -1167,7 +1262,7 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
   int        rc = PAM_SESSION_ERR;
   const char *username;
   char       *secret_filename = NULL;
-  int        uid, old_uid = -1, fd = -1;
+  int        uid, old_uid = -1, old_gid = -1, fd = -1;
   off_t      filesize = 0;
   time_t     mtime = 0;
   char       *buf = NULL;
@@ -1189,8 +1284,8 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
   int updated = 0;
   if ((username = get_user_name(pamh)) &&
       (secret_filename = get_secret_filename(pamh, &params, username, &uid)) &&
-      (old_uid = drop_privileges(pamh, username, uid)) >= 0 &&
-      (fd = open_secret_file(pamh, secret_filename, username, uid,
+      !drop_privileges(pamh, username, uid, &old_uid, &old_gid) &&
+      (fd = open_secret_file(pamh, secret_filename, &params, username, uid,
                              &filesize, &mtime)) >= 0 &&
       (buf = read_file_contents(pamh, secret_filename, &fd, filesize)) &&
       (secret = get_shared_secret(pamh, secret_filename, buf, &secretLen)) &&
@@ -1201,9 +1296,9 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
     switch (check_scratch_codes(pamh, secret_filename, &updated, buf, code)) {
       case 1:
         if (hotp_counter > 0) {
-          switch (check_counterbased_code(pamh, secret_filename, &updated, &buf,
-                                          secret, secretLen, code, &params,
-                                          hotp_counter)) {
+          switch (check_counterbased_code(pamh, secret_filename, &updated,
+                                          &buf, secret, secretLen, code,
+                                          &params, hotp_counter)) {
             case 0:
               rc = PAM_SUCCESS;
               break;
@@ -1244,6 +1339,9 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
   }
   if (fd >= 0) {
     close(fd);
+  }
+  if (old_gid >= 0) {
+    setegid(old_gid);
   }
   if (old_uid >= 0) {
     setuser(old_uid);
