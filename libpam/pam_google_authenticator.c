@@ -235,6 +235,24 @@ static int setuser(int uid) {
   return old_uid;
 }
 
+static int setgroup(int gid) {
+#ifdef HAS_SETFSUID
+  // The semantics of setfsgid() are a little unusual. On success, the
+  // previous group id is returned. On failure, the current groupd id is returned.
+  int old_gid = setfsgid(gid);
+  if (gid != setfsgid(gid)) {
+    setfsgid(old_gid);
+    return -1;
+  }
+#else
+  int old_gid = getegid();
+  if (old_gid != gid && setegid(gid)) {
+    return -1;
+  }
+#endif
+  return old_gid;
+}
+
 static int drop_privileges(pam_handle_t *pamh, const char *username, int uid,
                            int *old_uid, int *old_gid) {
   // Try to become the new user. This might be necessary for NFS mounted home
@@ -268,8 +286,8 @@ static int drop_privileges(pam_handle_t *pamh, const char *username, int uid,
     log_message(LOG_ERR, pamh, "Failed to change user id to \"%s\"", username);
     return -1;
   }
-  int gid_o = getegid();
-  if (gid_o != gid && setegid(gid)) {
+  int gid_o = setgroup(gid);
+  if (gid_o < 0) {
     setuser(uid_o);
     log_message(LOG_ERR, pamh,
                 "Failed to change group id for user \"%s\" to %d", username,
@@ -1480,7 +1498,7 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
     close(fd);
   }
   if (old_gid >= 0) {
-    setegid(old_gid);
+    setgroup(old_gid);
   }
   if (old_uid >= 0) {
     setuser(old_uid);
