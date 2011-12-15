@@ -63,6 +63,8 @@ typedef struct Params {
   int        echocode;
   int        fixed_uid;
   uid_t      uid;
+  enum { PROMPT = 0, TRY_FIRST_PASS, USE_FIRST_PASS } pass_mode;
+  int        forward_pass;
 } Params;
 
 static char oom;
@@ -709,35 +711,41 @@ static int rate_limit(pam_handle_t *pamh, const char *secret_filename,
   return 0;
 }
 
-static int request_verification_code(pam_handle_t *pamh, int echocode) {
+static char *get_first_pass(pam_handle_t *pamh) {
+  const char *password = NULL;
+  if (pam_get_item(pamh, PAM_AUTHTOK,
+                   (const void **)&password) == PAM_SUCCESS &&
+      password) {
+    return strdup(password);
+  }
+  return NULL;
+}
+
+static char *request_pass(pam_handle_t *pamh, int echocode,
+                          const char *prompt) {
   // Query user for verification code
   const struct pam_message msg = { .msg_style = echocode,
-                                   .msg       = "Verification code: " };
+                                   .msg       = prompt };
   const struct pam_message *msgs = &msg;
   struct pam_response *resp = NULL;
   int retval = converse(pamh, 1, &msgs, &resp);
-  int code = -1;
-  char *endptr = NULL, *ptr;
-  errno = 0;
-  if (retval != PAM_SUCCESS || resp == NULL || resp[0].resp == NULL ||
-      *resp[0].resp == '\000' ||
-      ((code = (int)strtoul(ptr = resp[0].resp, &endptr, 10)), *endptr) ||
-      ptr == endptr ||
-      errno) {
+  char *ret = NULL;
+  if (retval != PAM_SUCCESS || resp == NULL || resp->resp == NULL ||
+      *resp->resp == '\000') {
     log_message(LOG_ERR, pamh, "Did not receive verification code from user");
-    code = -1;
+  } else {
+    ret = resp->resp;
   }
 
-  // Zero out any copies of the response, and deallocate temporary storage
+  // Deallocate temporary storage
   if (resp) {
-    if (resp[0].resp) {
-      memset(resp[0].resp, 0, strlen(resp[0].resp));
-      free(resp[0].resp);
+    if (!ret) {
+      free(resp->resp);
     }
     free(resp);
   }
 
-  return code;
+  return ret;
 }
 
 /* Checks for possible use of scratch codes. Returns -1 on error, 0 on success,
@@ -1014,7 +1022,7 @@ static int check_time_skew(pam_handle_t *pamh, const char *secret_filename,
     if (num_entries &&
         tm + skew == tms[num_entries-1] + skews[num_entries-1]) {
       free((void *)resetting);
-      return rc;
+      return -1;
     }
   }
   free((void *)resetting);
@@ -1146,7 +1154,7 @@ static int check_timebased_code(pam_handle_t *pamh, const char*secret_filename,
     }
   }
 
-  return -1;
+  return 1;
 }
 
 /* Checks for counter based verification code. Returns -1 on error, 0 on
@@ -1157,7 +1165,8 @@ static int check_counterbased_code(pam_handle_t *pamh,
                                    const char*secret_filename, int *updated,
                                    char **buf, const uint8_t*secret,
                                    int secretLen, int code, Params *params,
-                                   long hotp_counter) {
+                                   long hotp_counter,
+                                   int *must_advance_counter) {
   if (hotp_counter < 1) {
     // The secret file did not actually contain information for a counter-based
     // code. Return to caller and see if any other authentication methods
@@ -1171,32 +1180,27 @@ static int check_counterbased_code(pam_handle_t *pamh,
   }
 
   // Compute [window_size] verification codes and compare them with user input.
-  // Future codes are allowed in case the user computed but not use a code.
+  // Future codes are allowed in case the user computed but did not use a code.
   int window = window_size(pamh, secret_filename, *buf);
   if (!window) {
     return -1;
   }
-  int increment = 0;
-  int result = -1;
   for (int i = 0; i < window; ++i) {
     unsigned int hash = compute_code(secret, secretLen, hotp_counter + i);
     if (hash == (unsigned int)code) {
-      increment = i;
-      result = 0;
+      char counter_str[40];
+      sprintf(counter_str, "%ld", hotp_counter + i + 1);
+      if (set_cfg_value(pamh, "HOTP_COUNTER", counter_str, buf) < 0) {
+        return -1;
+      }
+      *updated = 1;
+      *must_advance_counter = 0;
+      return 0;
     }
   }
 
-  // Always increment by at least one because even a failed login attempt
-  // consumes a token.
-  char counter_str[40];
-  sprintf(counter_str, "%ld", hotp_counter + increment + 1);
-  if (set_cfg_value(pamh, "HOTP_COUNTER", counter_str, buf) < 0) {
-    return -1;
-  }
-
-  *updated = 1;
-
-  return result;
+  *must_advance_counter = 1;
+  return 1;
 }
 
 static int parse_user(pam_handle_t *pamh, const char *name, uid_t *uid) {
@@ -1245,9 +1249,16 @@ static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
       }
       params->fixed_uid = 1;
       params->uid = uid;
+    } else if (!strcmp(argv[i], "try_first_pass")) {
+      params->pass_mode = TRY_FIRST_PASS;
+    } else if (!strcmp(argv[i], "use_first_pass")) {
+      params->pass_mode = USE_FIRST_PASS;
+    } else if (!strcmp(argv[i], "forward_pass")) {
+      params->forward_pass = 1;
     } else if (!strcmp(argv[i], "noskewadj")) {
       params->noskewadj = 1;
-    } else if (!strcmp(argv[i], "echo-verification-code")) {
+    } else if (!strcmp(argv[i], "echo-verification-code") ||
+               !strcmp(argv[i], "echo_verification_code")) {
       params->echocode = PAM_PROMPT_ECHO_ON;
     } else {
       log_message(LOG_ERR, pamh, "Unrecognized option \"%s\"", argv[i]);
@@ -1268,7 +1279,6 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
   char       *buf = NULL;
   uint8_t    *secret = NULL;
   int        secretLen = 0;
-  int        code = -1;
 
 #if defined(DEMO) || defined(TESTING)
   *error_msg = '\000';
@@ -1281,7 +1291,7 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
   }
 
   // Read and process status file, then ask the user for the verification code.
-  int updated = 0;
+  int early_updated = 0, updated = 0;
   if ((username = get_user_name(pamh)) &&
       (secret_filename = get_secret_filename(pamh, &params, username, &uid)) &&
       !drop_privileges(pamh, username, uid, &old_uid, &old_gid) &&
@@ -1289,30 +1299,126 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
                              &filesize, &mtime)) >= 0 &&
       (buf = read_file_contents(pamh, secret_filename, &fd, filesize)) &&
       (secret = get_shared_secret(pamh, secret_filename, buf, &secretLen)) &&
-      (rate_limit(pamh, secret_filename, &updated, &buf) >= 0) &&
-      (code = request_verification_code(pamh, params.echocode)) >= 0) {
+       rate_limit(pamh, secret_filename, &early_updated, &buf) >= 0) {
     long hotp_counter = get_hotp_counter(pamh, buf);
-    // Check all possible types of verification codes.
-    switch (check_scratch_codes(pamh, secret_filename, &updated, buf, code)) {
+    int must_advance_counter = 0;
+    char *pw = NULL, *saved_pw = NULL;
+    for (int mode = 0; mode < 4; ++mode) {
+      // In the case of TRY_FIRST_PASS, we don't actually know whether we
+      // get the verification code from the system password or from prompting
+      // the user. We need to attempt both.
+      // This only works correctly, if all failed attempts leave the global
+      // state unchanged.
+      if (updated || pw) {
+        // Oops. There is something wrong with the internal logic of our
+        // code. This error should never trigger. The unittest checks for
+        // this.
+        if (pw) {
+          memset(pw, 0, strlen(pw));
+          free(pw);
+          pw = NULL;
+        }
+        rc = PAM_SESSION_ERR;
+        break;
+      }
+      switch (mode) {
+      case 0: // Extract possible verification code
+      case 1: // Extract possible scratch code
+        if (params.pass_mode == USE_FIRST_PASS ||
+            params.pass_mode == TRY_FIRST_PASS) {
+          pw = get_first_pass(pamh);
+        }
+        break;
+      default:
+        if (mode != 2 && // Prompt for pw and possible verification code
+            mode != 3) { // Prompt for pw and possible scratch code
+          rc = PAM_SESSION_ERR;
+          continue;
+        }
+        if (params.pass_mode == PROMPT ||
+            params.pass_mode == TRY_FIRST_PASS) {
+          if (!saved_pw) {
+            // If forwarding the password to the next stacked PAM module,
+            // we cannot tell the difference between an eight digit scratch
+            // code or a two digit password immediately followed by a six
+            // digit verification code. We have to loop and try both
+            // options.
+            saved_pw = request_pass(pamh, params.echocode,
+                                    params.forward_pass ?
+                                    "Password & verification code: " :
+                                    "Verification code: ");
+          }
+          if (saved_pw) {
+            pw = strdup(saved_pw);
+          }
+        }
+        break;
+      }
+      if (!pw) {
+        continue;
+      }
+
+      // We are often dealing with a combined password and verification
+      // code. Separate them now.
+      int pw_len = strlen(pw);
+      int expected_len = mode & 1 ? 8 : 6;
+      char ch;
+      if (pw_len < expected_len ||
+          // Verification are six digits starting with '0'..'9',
+          // scratch codes are eight digits starting with '1'..'9'
+          (ch = pw[pw_len - expected_len]) > '9' ||
+          ch < (expected_len == 8 ? '1' : '0')) {
+      invalid:
+        memset(pw, 0, pw_len);
+        free(pw);
+        pw = NULL;
+        continue;
+      }
+      char *endptr;
+      errno = 0;
+      long l = strtol(pw + pw_len - expected_len, &endptr, 10);
+      if (errno || l < 0 || *endptr) {
+        goto invalid;
+      }
+      int code = (int)l;
+      memset(pw + pw_len - expected_len, 0, expected_len);
+
+      if ((mode == 2 || mode == 3) && !params.forward_pass) {
+        // We are explicitly configured so that we don't try to share
+        // the password with any other stacked PAM module. We must
+        // therefore verify that the user entered just the verification
+        // code, but no password.
+        if (*pw) {
+          goto invalid;
+        }
+      }
+
+      // Check all possible types of verification codes.
+      switch (check_scratch_codes(pamh, secret_filename, &updated, buf, code)){
       case 1:
         if (hotp_counter > 0) {
           switch (check_counterbased_code(pamh, secret_filename, &updated,
                                           &buf, secret, secretLen, code,
-                                          &params, hotp_counter)) {
-            case 0:
-              rc = PAM_SUCCESS;
-              break;
-            default:
-              break;
+                                          &params, hotp_counter,
+                                          &must_advance_counter)) {
+          case 0:
+            rc = PAM_SUCCESS;
+            break;
+          case 1:
+            goto invalid;
+          default:
+            break;
           }
         } else {
           switch (check_timebased_code(pamh, secret_filename, &updated, &buf,
                                        secret, secretLen, code, &params)) {
-            case 0:
-              rc = PAM_SUCCESS;
-              break;
-            default:
-              break;
+          case 0:
+            rc = PAM_SUCCESS;
+            break;
+          case 1:
+            goto invalid;
+          default:
+            break;
           }
         }
         break;
@@ -1321,6 +1427,39 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
         break;
       default:
         break;
+      }
+
+      break;
+    }
+
+    // Update the system password, if we were asked to forward
+    // the system password. We already removed the verification
+    // code from the end of the password.
+    if (rc == PAM_SUCCESS && params.forward_pass) {
+      if (!pw || pam_set_item(pamh, PAM_AUTHTOK, pw) != PAM_SUCCESS) {
+        rc = PAM_SESSION_ERR;
+      }
+    }
+
+    // Clear out password and deallocate memory
+    if (pw) {
+      memset(pw, 0, strlen(pw));
+      free(pw);
+    }
+    if (saved_pw) {
+      memset(saved_pw, 0, strlen(saved_pw));
+      free(saved_pw);
+    }
+
+    // If an hotp login attempt has been made, the counter must always be
+    // advanced by at least one.
+    if (must_advance_counter) {
+      char counter_str[40];
+      sprintf(counter_str, "%ld", hotp_counter + 1);
+      if (set_cfg_value(pamh, "HOTP_COUNTER", counter_str, &buf) < 0) {
+        rc = PAM_SESSION_ERR;
+      }
+      updated = 1;
     }
 
     // If nothing matched, display an error message
@@ -1330,7 +1469,7 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
   }
 
   // Persist the new state.
-  if (updated) {
+  if (early_updated || updated) {
     if (write_file_contents(pamh, secret_filename, filesize,
                             mtime, buf) < 0) {
       // Could not persist new state. Deny access.

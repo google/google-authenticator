@@ -61,8 +61,19 @@ not have traditional UNIX accounts on your system.
 
 By default, the PAM module does not echo the verification code when it is
 entered by the user. In some situations, the administrator might prefer a
-different behavior. Pass the "echo-verification-code" option to the module
+different behavior. Pass the "echo_verification_code" option to the module
 in order to enable echoing.
+
+Some PAM clients cannot prompt the user for more than just the password. To
+work around this problem, this PAM module supports stacking. If you pass the
+"forward_pass" option, the "pam_google_authenticator" module queries the user
+for both the system password and the verification code in a single prompt.
+It then forwards the system password to the next PAM module, which will have
+to be configured with the "use_first_pass" option.
+
+In turn, "pam_google_authenticator" module also supports both the standard
+"use_first_pass" and "try_first_pass" options. But most users would not need
+to set those on the "pam_google_authenticator".
 
 If you would like verification codes that are counter based instead of
 timebased, use the "google-authenticator" binary to generate a secret key in

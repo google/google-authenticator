@@ -103,6 +103,16 @@ int pam_get_item(const pam_handle_t *pamh, int item_type,
   }
 }
 
+int pam_set_item(pam_handle_t *pamh, int item_type,
+                 PAM_CONST void *item) {
+  switch (item_type) {
+    case PAM_AUTHTOK:
+      return PAM_SUCCESS;
+    default:
+      return PAM_BAD_ITEM;
+  }
+}
+
 static void print_diagnostics(int signo) {
   extern const char *get_error_msg(void);
   assert(!tcsetattr(0, TCSAFLUSH, &old_termios));
