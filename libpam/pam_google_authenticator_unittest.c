@@ -219,7 +219,7 @@ int main(int argc, char *argv[]) {
   
     // Set up test argc/argv parameters to let the PAM module know where to
     // find our secret file
-    const char *targv[] = { malloc(strlen(fn) + 8), NULL, NULL, NULL };
+    const char *targv[] = { malloc(strlen(fn) + 8), NULL, NULL, NULL, NULL };
     strcat(strcpy((char *)targv[0], "secret="), fn);
     int targc;
   
@@ -300,6 +300,17 @@ int main(int argc, char *argv[]) {
 
     // Set the response that we should send back to the authentication module
     response = "050548";
+
+    // Test handling of missing state files
+    puts("Test handling of missing state files");
+    const char *old_secret = targv[0];
+    targv[0] = "secret=/NOSUCHFILE";
+    assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
+    targv[targc++] = "nullok";
+    targv[targc] = NULL;
+    assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
+    targv[--targc] = NULL;
+    targv[0] = old_secret;
   
     // Check if we can log in when using a valid verification code
     puts("Testing successful login");

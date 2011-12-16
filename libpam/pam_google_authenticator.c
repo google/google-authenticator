@@ -59,6 +59,7 @@
 
 typedef struct Params {
   const char *secret_filename_spec;
+  enum { NULLERR=0, NULLOK, SECRETNOTFOUND } nullok;
   int        noskewadj;
   int        echocode;
   int        fixed_uid;
@@ -309,7 +310,14 @@ static int open_secret_file(pam_handle_t *pamh, const char *secret_filename,
   struct stat sb;
   if (fd < 0 ||
       fstat(fd, &sb) < 0) {
-    log_message(LOG_ERR, pamh, "Failed to read \"%s\"", secret_filename);
+    if (params->nullok != NULLERR && errno == ENOENT) {
+      // The user doesn't have a state file, but the admininistrator said
+      // that this is OK. We still return an error from open_secret_file(),
+      // but we remember that this was the result of a missing state file.
+      params->nullok = SECRETNOTFOUND;
+    } else {
+      log_message(LOG_ERR, pamh, "Failed to read \"%s\"", secret_filename);
+    }
  error:
     if (fd >= 0) {
       close(fd);
@@ -1275,6 +1283,8 @@ static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
       params->forward_pass = 1;
     } else if (!strcmp(argv[i], "noskewadj")) {
       params->noskewadj = 1;
+    } else if (!strcmp(argv[i], "nullok")) {
+      params->nullok = NULLOK;
     } else if (!strcmp(argv[i], "echo-verification-code") ||
                !strcmp(argv[i], "echo_verification_code")) {
       params->echocode = PAM_PROMPT_ECHO_ON;
@@ -1484,6 +1494,13 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
     if (rc != PAM_SUCCESS) {
       log_message(LOG_ERR, pamh, "Invalid verification code");
     }
+  }
+
+  // If the user has not created a state file with a shared secret, and if
+  // the administrator set the "nullok" option, this PAM module completes
+  // successfully, without ever prompting the user.
+  if (params.nullok == SECRETNOTFOUND) {
+    rc = PAM_SUCCESS;
   }
 
   // Persist the new state.

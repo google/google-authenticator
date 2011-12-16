@@ -24,6 +24,12 @@ Each time you log into your system, you will now be prompted for your
 TOTP code (timebased one-time-password) after having entered your normal user
 id and your normal UNIX account password.
 
+During the initial roll-out process, you might find that not all users have
+created a secret key, yet. If you would still like them to be able to log
+in, you can pass the "nullok" option on the module's command line:
+
+  auth required pam_google_authenticator.so nullok
+
 If you discover that your TOTP code never works, this is most commonly the
 result of the clock on your server being different from the one on your Android
 device. The PAM module makes an attempt to compensate for time skew. You can
@@ -48,7 +54,7 @@ would be a possible choice. Make sure to set appropriate permissions. You also
 have to tell your users to manually move their .google-authenticator file to
 this location.
 
-In addtion to "${USER}", the "secret=" option also recognizes both "~" and
+In addition to "${USER}", the "secret=" option also recognizes both "~" and
 "${HOME}" as short-hands for the user's home directory.
 
 When using the "secret=" option, you might want to also set the "user="
