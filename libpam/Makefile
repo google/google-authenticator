@@ -24,6 +24,11 @@ DEF_CFLAGS := $(shell [ `uname` = SunOS ] &&                                  \
                 echo ' -D_POSIX_PTHREAD_SEMANTICS -D_REENTRANT')              \
               $(CFLAGS)
 DEF_LDFLAGS := $(shell [ `uname` = SunOS ] && echo ' -mimpure-text') $(LDFLAGS)
+LDL_LDFLAGS := $(shell a="`dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null|\
+                          sed -e '/^$$/q' -e 's/.*/\/usr\/lib\/& \/lib\/&/'`";\
+                       [ -f "`find /usr/lib $${a} /lib -maxdepth 1            \
+                                   -name libdl.so -print -quit`" ] &&         \
+                     echo ' -ldl')
 
 all: google-authenticator pam_google_authenticator.so demo                    \
      pam_google_authenticator_unittest
@@ -32,7 +37,9 @@ test: pam_google_authenticator_unittest
 	./pam_google_authenticator_unittest
 
 install: all
-	@dst=/lib$$([ -d /lib64/security ] && echo 64)/security;              \
+	@dst="`find /lib*/security /lib*/*/security -maxdepth 1               \
+	            -name pam_unix.so -printf '%H' -quit 2>/dev/null`";       \
+	[ -d "$${dst}" ] || dst=/lib/security;                                \
 	[ -d "$${dst}" ] || dst=/usr/lib;                                     \
 	sudo=; if [ $$(id -u) -ne 0 ]; then                                   \
 	  echo "You need to be root to install this module.";                 \
@@ -56,18 +63,14 @@ clean:
 	               pam_google_authenticator_unittest
 
 google-authenticator: google-authenticator.o base32.o hmac.o sha1.o
-	$(CC) -g $(DEF_LDFLAGS) $(shell [ -f /usr/lib/libdl.so ] &&           \
-	      echo " -ldl") -o $@ $+
+	$(CC) -g $(DEF_LDFLAGS) -o $@ $+ $(LDL_LDFLAGS)
 
 demo: demo.o pam_google_authenticator_demo.o base32.o hmac.o sha1.o
-	$(CC) -g $(DEF_LDFLAGS) -rdynamic                                     \
-	      $(shell [ -f /usr/lib/libdl.so ] && echo " -ldl") -o $@ $+
+	$(CC) -g $(DEF_LDFLAGS) -rdynamic -o $@ $+ $(LDL_LDFLAGS)
 
 pam_google_authenticator_unittest: pam_google_authenticator_unittest.o        \
                                    base32.o hmac.o sha1.o
-	$(CC) -g $(DEF_LDFLAGS) -rdynamic -lc                                 \
-              $(shell [ -f /usr/lib/libdl.so ] && echo " -ldl")               \
-              -o $@ $+
+	$(CC) -g $(DEF_LDFLAGS) -rdynamic -o $@ $+ -lc $(LDL_LDFLAGS)
 
 pam_google_authenticator.so: base32.o hmac.o sha1.o
 pam_google_authenticator_testing.so: base32.o hmac.o sha1.o
@@ -92,4 +95,4 @@ sha1.o: sha1.c sha1.h
 .c.o:
 	$(CC) --std=gnu99 -Wall -O2 -g -fPIC -c $(DEF_CFLAGS) -o $@ $<
 .o.so:
-	$(CC) -shared -g $(DEF_LDFLAGS) -o $@ $+
+	$(CC) -shared -g $(DEF_LDFLAGS) -o $@ $+ -lpam
