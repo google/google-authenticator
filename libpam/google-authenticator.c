@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <dlfcn.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,7 +43,7 @@
 #define BYTES_PER_SCRATCHCODE     4           // 32bit of randomness is enough
 #define BITS_PER_BASE32_CHAR      5           // Base32 expands space by 8/5
 
-static int useBlockElements = 0;
+static enum { QR_UNSET=0, QR_NONE, QR_ANSI, QR_UTF8 } qr_mode = QR_UNSET;
 
 static int generateCode(const char *key, unsigned long tm) {
   uint8_t challenge[8];
@@ -108,6 +109,10 @@ static const char *getUserName(uid_t uid) {
     snprintf(user, 32, "%d", uid);
   } else {
     user = strdup(pw->pw_name);
+    if (!user) {
+      perror("malloc()");
+      _exit(1);
+    }
   }
   free(buf);
   return user;
@@ -126,7 +131,8 @@ static const char *getURL(const char *secret, char **encoderURL,
   if (use_totp) {
     totp = 't';
   }
-  sprintf(url, "otpauth://%cotp/%s@%s?secret=%s", totp, user, hostname, secret);
+  sprintf(url, "otpauth://%cotp/%s@%s?secret=%s",
+          totp, user, hostname, secret);
   if (encoderURL) {
     const char *encoder = "https://www.google.com/chart?chs=200x200&"
                           "chld=M|0&cht=qr&chl=";
@@ -147,6 +153,9 @@ static const char *getURL(const char *secret, char **encoderURL,
 #define UTF8_BOTTOMHALF   "\xE2\x96\x84"
 
 static void displayQRCode(const char *secret, const int use_totp) {
+  if (qr_mode == QR_NONE) {
+    return;
+  }
   char *encoderURL;
   const char *url = getURL(secret, &encoderURL, use_totp);
   puts(encoderURL);
@@ -180,7 +189,7 @@ static void displayQRCode(const char *secret, const int use_totp) {
         // scheme.
         // But this requires that we print a border around the entire QR Code.
         // Otherwise, readers won't be able to recognize it.
-        if (!useBlockElements) {
+        if (qr_mode != QR_UTF8) {
           for (int i = 0; i < 2; ++i) {
             printf(ANSI_BLACKONGREY);
             for (int x = 0; x < qrcode->width + 4; ++x) printf("  ");
@@ -295,26 +304,261 @@ static char *maybeAddOption(const char *msg, char *buf, size_t nbuf,
   return buf;
 }
 
+static void usage(void) {
+  puts(
+    "google-authenticator [<options>]\n"
+    " -h, --help               Print this message\n"
+    " -c, --counter-based      Set up counter-based (HOTP) verification\n"
+    " -t, --time-based         Set up time-based (TOTP) verification\n"
+    " -d, --disallow-reuse     Disallow reuse of previously used TOTP tokens\n"
+    " -D, --allow-reuse        Allow reuse of previously used TOTP tokens\n"
+    " -f, --force              Write file without first confirming with user\n"
+    " -q, --quiet              Quiet mode\n"
+    " -Q, --qr-mode={NONE,ANSI,UTF8}\n"
+    " -r, --rate-limit=N       Limit logins to N per every M seconds\n"
+    " -R, --rate-time=M        Limit logins to N per every M seconds\n"
+    " -u, --no-rate-limit      Disable rate-limiting\n"
+    " -s, --secret=<file>      Specify a non-standard file location\n"
+    " -w, --window-size=W      Set window of concurrently valid codes\n"
+    " -W, --minimal-window     Disable window of concurrently valid codes");
+}
+
 int main(int argc, char *argv[]) {
-  int fd = open("/dev/urandom", O_RDONLY);
-  if (fd < 0) {
-    perror("Failed to open \"/dev/urandom\"");
-    return 1;
-  }
   uint8_t buf[SECRET_BITS/8 + SCRATCHCODES*BYTES_PER_SCRATCHCODE];
   static const char hotp[]      = "\" HOTP_COUNTER 1\n";
   static const char totp[]      = "\" TOTP_AUTH\n";
   static const char disallow[]  = "\" DISALLOW_REUSE\n";
   static const char window[]    = "\" WINDOW_SIZE 17\n";
   static const char ratelimit[] = "\" RATE_LIMIT 3 30\n";
-  char    secret[(SECRET_BITS + BITS_PER_BASE32_CHAR-1)/BITS_PER_BASE32_CHAR +
-                 1 /* newline */ +
-                 sizeof(hotp) +  // hotp and totp are mutually exclusive.
-                 sizeof(disallow) +
-                 sizeof(window) +
-                 sizeof(ratelimit) +
-                 SCRATCHCODE_LENGTH*(SCRATCHCODES + 1 /* newline */) +
-                 1 /* NUL termination character */];
+  char secret[(SECRET_BITS + BITS_PER_BASE32_CHAR-1)/BITS_PER_BASE32_CHAR +
+              1 /* newline */ +
+              sizeof(hotp) +  // hotp and totp are mutually exclusive.
+              sizeof(disallow) +
+              sizeof(window) +
+              sizeof(ratelimit) + 5 + // NN MMM (total of five digits)
+              SCRATCHCODE_LENGTH*(SCRATCHCODES + 1 /* newline */) +
+              1 /* NUL termination character */];
+
+  enum { ASK_MODE, HOTP_MODE, TOTP_MODE } mode = ASK_MODE;
+  enum { ASK_REUSE, DISALLOW_REUSE, ALLOW_REUSE } reuse = ASK_REUSE;
+  int force = 0, quiet = 0;
+  int r_limit = 0, r_time = 0;
+  char *secret_fn = NULL;
+  int window_size = 0;
+  int idx;
+  for (;;) {
+    static const char optstring[] = "+hctdDfqQ:r:R:us:w:W";
+    static struct option options[] = {
+      { "help",             0, 0, 'h' },
+      { "counter-based",    0, 0, 'c' },
+      { "time-based",       0, 0, 't' },
+      { "disallow-reuse",   0, 0, 'd' },
+      { "allow-reuse",      0, 0, 'D' },
+      { "force",            0, 0, 'f' },
+      { "quiet",            0, 0, 'q' },
+      { "qr-mode",          1, 0, 'Q' },
+      { "rate-limit",       1, 0, 'r' },
+      { "rate-time",        1, 0, 'R' },
+      { "no-rate-limit",    0, 0, 'u' },
+      { "secret",           1, 0, 's' },
+      { "window-size",      1, 0, 'w' },
+      { "minimal-window",   0, 0, 'W' },
+      { 0,                  0, 0,  0  }
+    };
+    idx = -1;
+    int c = getopt_long(argc, argv, optstring, options, &idx);
+    if (c > 0) {
+      for (int i = 0; options[i].name; i++) {
+        if (options[i].val == c) {
+          idx = i;
+          break;
+        }
+      }
+    } else if (c < 0) {
+      break;
+    }
+    if (idx-- <= 0) {
+      // Help (or invalid argument)
+    err:
+      usage();
+      if (idx < -1) {
+        fprintf(stderr, "Failed to parse command line\n");
+        _exit(1);
+      }
+      exit(0);
+    } else if (!idx--) {
+      // counter-based
+      if (mode != ASK_MODE) {
+        fprintf(stderr, "Duplicate -c and/or -t option detected\n");
+        _exit(1);
+      }
+      if (reuse != ASK_REUSE) {
+      reuse_err:
+        fprintf(stderr, "Reuse of tokens is not a meaningful parameter "
+                "when in counter-based mode\n");
+        _exit(1);
+      }
+      mode = HOTP_MODE;
+    } else if (!idx--) {
+      // time-based
+      if (mode != ASK_MODE) {
+        fprintf(stderr, "Duplicate -c and/or -t option detected\n");
+        _exit(1);
+      }
+      mode = TOTP_MODE;
+    } else if (!idx--) {
+      // disallow-reuse
+      if (reuse != ASK_REUSE) {
+        fprintf(stderr, "Duplicate -d and/or -D option detected\n");
+        _exit(1);
+      }
+      if (mode == HOTP_MODE) {
+        goto reuse_err;
+      }
+      reuse = DISALLOW_REUSE;
+    } else if (!idx--) {
+      // allow-reuse
+      if (reuse != ASK_REUSE) {
+        fprintf(stderr, "Duplicate -d and/or -D option detected\n");
+        _exit(1);
+      }
+      if (mode == HOTP_MODE) {
+        goto reuse_err;
+      }
+      reuse = ALLOW_REUSE;
+    } else if (!idx--) {
+      // force
+      if (force) {
+        fprintf(stderr, "Duplicate -f option detected\n");
+        _exit(1);
+      }
+      force = 1;
+    } else if (!idx--) {
+      // quiet
+      if (quiet) {
+        fprintf(stderr, "Duplicate -q option detected\n");
+        _exit(1);
+      }
+      quiet = 1;
+    } else if (!idx--) {
+      // qr-mode
+      if (qr_mode != QR_UNSET) {
+        fprintf(stderr, "Duplicate -Q option detected\n");
+        _exit(1);
+      }
+      if (!strcasecmp(optarg, "none")) {
+        qr_mode = QR_NONE;
+      } else if (!strcasecmp(optarg, "ansi")) {
+        qr_mode = QR_ANSI;
+      } else if (!strcasecmp(optarg, "utf8")) {
+        qr_mode = QR_UTF8;
+      } else {
+        fprintf(stderr, "Invalid qr-mode \"%s\"\n", optarg);
+        _exit(1);
+      }
+    } else if (!idx--) {
+      // rate-limit
+      if (r_limit > 0) {
+        fprintf(stderr, "Duplicate -r option detected\n");
+        _exit(1);
+      } else if (r_limit < 0) {
+        fprintf(stderr, "-u is mutually exclusive with -r\n");
+        _exit(1);
+      }
+      char *endptr;
+      errno = 0;
+      long l = strtol(optarg, &endptr, 10);
+      if (errno || endptr == optarg || *endptr || l < 1 || l > 10) {
+        fprintf(stderr, "-r requires an argument in the range 1..10\n");
+        _exit(1);
+      }
+      r_limit = (int)l;
+    } else if (!idx--) {
+      // rate-time
+      if (r_time > 0) {
+        fprintf(stderr, "Duplicate -R option detected\n");
+        _exit(1);
+      } else if (r_time < 0) {
+        fprintf(stderr, "-u is mutually exclusive with -R\n");
+        _exit(1);
+      }
+      char *endptr;
+      errno = 0;
+      long l = strtol(optarg, &endptr, 10);
+      if (errno || endptr == optarg || *endptr || l < 15 || l > 600) {
+        fprintf(stderr, "-R requires an argument in the range 15..600\n");
+        _exit(1);
+      }
+      r_time = (int)l;
+    } else if (!idx--) {
+      // no-rate-limit
+      if (r_limit > 0 || r_time > 0) {
+        fprintf(stderr, "-u is mutually exclusive with -r/-R\n");
+        _exit(1);
+      }
+      if (r_limit < 0) {
+        fprintf(stderr, "Duplicate -u option detected\n");
+        _exit(1);
+      }
+      r_limit = r_time = -1;
+    } else if (!idx--) {
+      // secret
+      if (secret_fn) {
+        fprintf(stderr, "Duplicate -s option detected\n");
+        _exit(1);
+      }
+      if (!*optarg) {
+        fprintf(stderr, "-s must be followed by a filename\n");
+        _exit(1);
+      }
+      secret_fn = strdup(optarg);
+      if (!secret_fn) {
+        perror("malloc()");
+        _exit(1);
+      }
+    } else if (!idx--) {
+      // window-size
+      if (window_size) {
+        fprintf(stderr, "Duplicate -w/-W option detected\n");
+        _exit(1);
+      }
+      char *endptr;
+      errno = 0;
+      long l = strtol(optarg, &endptr, 10);
+      if (errno || endptr == optarg || *endptr || l < 1 || l > 21) {
+        fprintf(stderr, "-w requires an argument in the range 1..21\n");
+        _exit(1);
+      }
+      window_size = (int)l;
+    } else if (!idx--) {
+      // minimal-window
+      if (window_size) {
+        fprintf(stderr, "Duplicate -w/-W option detected\n");
+        _exit(1);
+      }
+      window_size = -1;
+    } else {
+      fprintf(stderr, "Error\n");
+      _exit(1);
+    }
+  }
+  idx = -1;
+  if (optind != argc) {
+    goto err;
+  }
+  if (reuse != ASK_REUSE && mode != TOTP_MODE) {
+    fprintf(stderr, "Must select time-based mode, when using -d or -D\n");
+    _exit(1);
+  }
+  if ((r_time && !r_limit) || (!r_time && r_limit)) {
+    fprintf(stderr, "Must set -r when setting -R, and vice versa\n");
+    _exit(1);
+  }
+  int fd = open("/dev/urandom", O_RDONLY);
+  if (fd < 0) {
+    perror("Failed to open \"/dev/urandom\"");
+    return 1;
+  }
   if (read(fd, buf, sizeof(buf)) != sizeof(buf)) {
   urandom_failure:
     perror("Failed to read from \"/dev/urandom\"");
@@ -322,12 +566,19 @@ int main(int argc, char *argv[]) {
   }
 
   base32_encode(buf, SECRET_BITS/8, (uint8_t *)secret, sizeof(secret));
-  int use_totp = maybe("Do you want authentication tokens to be time-based");
-  displayQRCode(secret, use_totp);
+  int use_totp;
+  if (mode == ASK_MODE) {
+    use_totp = maybe("Do you want authentication tokens to be time-based");
+  } else {
+    use_totp = mode == TOTP_MODE;
+  }
+  if (!quiet) {
+    displayQRCode(secret, use_totp);
+    printf("Your new secret key is: %s\n", secret);
+    printf("Your verification code is %06d\n", generateCode(secret, 0));
+    printf("Your emergency scratch codes are:\n");
+  }
   strcat(secret, "\n");
-  printf("Your new secret key is: %s", secret);
-  printf("Your verification code is %06d\n", generateCode(secret, 0));
-  printf("Your emergency scratch codes are:\n");
   if (use_totp) {
     strcat(secret, totp);
   } else {
@@ -353,50 +604,72 @@ int main(int argc, char *argv[]) {
       }
       goto new_scratch_code;
     }
-    printf("  %08d\n", scratch);
+    if (!quiet) {
+      printf("  %08d\n", scratch);
+    }
     snprintf(strrchr(secret, '\000'), sizeof(secret) - strlen(secret),
              "%08d\n", scratch);
   }
   close(fd);
-  printf("\nDo you want me to update your \"~%s\" file (y/n) ", SECRET);
-  fflush(stdout);
-  char ch;
-  do {
-    ch = getchar();
-  } while (ch == ' ' || ch == '\r' || ch == '\n');
-  if (ch == 'y' || ch == 'Y') {
+  if (!secret_fn) {
     char *home = getenv("HOME");
     if (!home || *home != '/') {
       fprintf(stderr, "Cannot determine home directory\n");
       return 1;
     }
-
-    char *fn = calloc(1, 2*(strlen(home) + strlen(SECRET) + 2));
-    if (!fn) {
-      perror("Cannot allocate space for filename");
-      return 1;
+    secret_fn = malloc(strlen(home) + strlen(SECRET) + 1);
+    if (!secret_fn) {
+      perror("malloc()");
+      _exit(1);
     }
-    strcat(strcpy(fn, home), SECRET "~");
-    char *tmp_fn = strrchr(fn, '\000');
-    memcpy(tmp_fn, fn, strlen(fn));
-    tmp_fn[-1] = '\000';
+    strcat(strcpy(secret_fn, home), SECRET);
+  }
+  if (!force) {
+    printf("\nDo you want me to update your \"%s\" file (y/n) ", secret_fn);
+    fflush(stdout);
+    char ch;
+    do {
+      ch = getchar();
+    } while (ch == ' ' || ch == '\r' || ch == '\n');
+    if (ch != 'y' && ch != 'Y') {
+      exit(0);
+    }
+  }
+  secret_fn = realloc(secret_fn, 2*strlen(secret_fn) + 3);
+  if (!secret_fn) {
+    perror("malloc()");
+    _exit(1);
+  }
+  char *tmp_fn = strrchr(secret_fn, '\000') + 1;
+  strcat(strcpy(tmp_fn, secret_fn), "~");
 
-    // Add optional flags.
-    if (use_totp) {
+  // Add optional flags.
+  if (use_totp) {
+    if (reuse == ASK_REUSE) {
       maybeAddOption("Do you want to disallow multiple uses of the same "
                      "authentication\ntoken? This restricts you to one login "
                      "about every 30s, but it increases\nyour chances to "
                      "notice or even prevent man-in-the-middle attacks",
                      secret, sizeof(secret), disallow);
+    } else if (reuse == DISALLOW_REUSE) {
+      addOption(secret, sizeof(secret), disallow);
+    }
+    if (!window_size) {
       maybeAddOption("By default, tokens are good for 30 seconds and in order "
-                     "to compensate for\npossible time-skew between the client "
-                     "and the server, we allow an extra\ntoken before and "
-                     "after the current time. If you experience problems with "
-                     "poor\ntime synchronization, you can increase the window "
-                     "from its default\nsize of 1:30min to about 4min. Do you "
-                     "want to do so",
+                     "to compensate for\npossible time-skew between the "
+                     "client and the server, we allow an extra\ntoken before "
+                     "and after the current time. If you experience problems "
+                     "with poor\ntime synchronization, you can increase the "
+                     "window from its default\nsize of 1:30min to about 4min. "
+                     "Do you want to do so",
                      secret, sizeof(secret), window);
     } else {
+      char buf[80];
+      sprintf(buf, "\" WINDOW_SIZE %d\n", window_size);
+      addOption(secret, sizeof(secret), buf);
+    }
+  } else {
+    if (!window_size) {
       maybeAddOption("By default, three tokens are valid at any one time.  "
                      "This accounts for\ngenerated-but-not-used tokens and "
                      "failed login attempts. In order to\ndecrease the "
@@ -404,32 +677,44 @@ int main(int argc, char *argv[]) {
                      "can be\nincreased from its default size of 3 to 17. Do "
                      "you want to do so",
                      secret, sizeof(secret), window);
+    } else {
+      char buf[80];
+      sprintf(buf, "\" WINDOW_SIZE %d\n",
+              window_size > 0 ? window_size : use_totp ? 3 : 1);
+      addOption(secret, sizeof(secret), buf);
     }
+  }
+  if (!r_limit && !r_time) {
     maybeAddOption("If the computer that you are logging into isn't hardened "
                    "against brute-force\nlogin attempts, you can enable "
                    "rate-limiting for the authentication module.\nBy default, "
                    "this limits attackers to no more than 3 login attempts "
                    "every 30s.\nDo you want to enable rate-limiting",
                    secret, sizeof(secret), ratelimit);
-
-    fd = open(tmp_fn, O_WRONLY|O_EXCL|O_CREAT|O_NOFOLLOW|O_TRUNC, 0400);
-    if (fd < 0) {
-      perror("Failed to create \"~"SECRET"\"");
-      free(fn);
-      return 1;
-    }
-    if (write(fd, secret, strlen(secret)) != (ssize_t)strlen(secret) ||
-        rename(tmp_fn, fn)) {
-      perror("Failed to write new secret");
-      unlink(fn);
-      close(fd);
-      free(fn);
-      return 1;
-    }
-
-    free(fn);
-    close(fd);
+  } else if (r_limit > 0 && r_time > 0) {
+    char buf[80];
+    sprintf(buf, "\"RATE_LIMIT %d %d\n", r_limit, r_time);
+    addOption(secret, sizeof(secret), buf);
   }
+
+  fd = open(tmp_fn, O_WRONLY|O_EXCL|O_CREAT|O_NOFOLLOW|O_TRUNC, 0400);
+  if (fd < 0) {
+    fprintf(stderr, "Failed to create \"%s\" (%s)",
+            secret_fn, strerror(errno));
+    free(secret_fn);
+    return 1;
+  }
+  if (write(fd, secret, strlen(secret)) != (ssize_t)strlen(secret) ||
+      rename(tmp_fn, secret_fn)) {
+    perror("Failed to write new secret");
+    unlink(secret_fn);
+    close(fd);
+    free(secret_fn);
+    return 1;
+  }
+
+  free(secret_fn);
+  close(fd);
 
   return 0;
 }
