@@ -24,11 +24,8 @@ DEF_CFLAGS := $(shell [ `uname` = SunOS ] &&                                  \
                 echo ' -D_POSIX_PTHREAD_SEMANTICS -D_REENTRANT')              \
               $(CFLAGS)
 DEF_LDFLAGS := $(shell [ `uname` = SunOS ] && echo ' -mimpure-text') $(LDFLAGS)
-LDL_LDFLAGS := $(shell a="`dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null|\
-                          sed -e '/^$$/q' -e 's/.*/\/usr\/lib\/& \/lib\/&/'`";\
-                       [ -f "`find /usr/lib $${a} /lib -maxdepth 1            \
-                                   -name libdl.so -print -quit`" ] &&         \
-                     echo ' -ldl')
+LDL_LDFLAGS := $(shell $(CC) -shared -ldl -xc -o /dev/null /dev/null          \
+                       >/dev/null 2>&1 && echo ' -ldl')
 
 all: google-authenticator pam_google_authenticator.so demo                    \
      pam_google_authenticator_unittest
