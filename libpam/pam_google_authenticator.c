@@ -738,11 +738,10 @@ static int rate_limit(pam_handle_t *pamh, const char *secret_filename,
 }
 
 static char *get_first_pass(pam_handle_t *pamh) {
-  const char *password = NULL;
-  if (pam_get_item(pamh, PAM_AUTHTOK,
-                   (const void **)&password) == PAM_SUCCESS &&
+  const void *password = NULL;
+  if (pam_get_item(pamh, PAM_AUTHTOK, &password) == PAM_SUCCESS &&
       password) {
-    return strdup(password);
+    return strdup((const char *)password);
   }
   return NULL;
 }
