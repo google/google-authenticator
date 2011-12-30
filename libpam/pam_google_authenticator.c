@@ -73,6 +73,7 @@ static char oom;
 #if defined(DEMO) || defined(TESTING)
 static char error_msg[128];
 
+const char *get_error_msg(void) __attribute__((visibility("default")));
 const char *get_error_msg(void) {
   return error_msg;
 }
@@ -466,6 +467,7 @@ static uint8_t *get_shared_secret(pam_handle_t *pamh,
 
 #ifdef TESTING
 static time_t current_time;
+void set_time(time_t t) __attribute__((visibility("default")));
 void set_time(time_t t) {
   current_time = t;
 }
@@ -960,7 +962,10 @@ static int invalidate_timebased_code(int tm, pam_handle_t *pamh,
 /* Given an input value, this function computes the hash code that forms the
  * expected authentication token.
  */
-#ifndef TESTING
+#ifdef TESTING
+int compute_code(const uint8_t *secret, int secretLen, unsigned long value)
+  __attribute__((visibility("default")));
+#else
 static
 #endif
 int compute_code(const uint8_t *secret, int secretLen, unsigned long value) {
@@ -1534,15 +1539,24 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
 }
 
 PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,
+                                   int argc, const char **argv)
+  __attribute__((visibility("default")));
+PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,
                                    int argc, const char **argv) {
   return google_authenticator(pamh, flags, argc, argv);
 }
 
 PAM_EXTERN int pam_sm_setcred(pam_handle_t *pamh, int flags, int argc,
+                                     const char **argv)
+  __attribute__((visibility("default")));
+PAM_EXTERN int pam_sm_setcred(pam_handle_t *pamh, int flags, int argc,
                                      const char **argv) {
   return PAM_SUCCESS;
 }
 
+PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags,
+                                   int argc, const char **argv)
+  __attribute__((visibility("default")));
 PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags,
                                    int argc, const char **argv) {
   return google_authenticator(pamh, flags, argc, argv);

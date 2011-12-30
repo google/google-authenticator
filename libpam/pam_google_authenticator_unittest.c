@@ -66,6 +66,9 @@ static int conversation(int num_msg, const struct pam_message **msg,
 #define PAM_CONST const
 #endif
 int pam_get_item(const pam_handle_t *pamh, int item_type,
+                 PAM_CONST void **item)
+  __attribute__((visibility("default")));
+int pam_get_item(const pam_handle_t *pamh, int item_type,
                  PAM_CONST void **item) {
   switch (item_type) {
     case PAM_SERVICE: {
@@ -98,6 +101,9 @@ int pam_get_item(const pam_handle_t *pamh, int item_type,
   }
 }
 
+int pam_set_item(pam_handle_t *pamh, int item_type,
+                 PAM_CONST void *item)
+  __attribute__((visibility("default")));
 int pam_set_item(pam_handle_t *pamh, int item_type,
                  PAM_CONST void *item) {
   switch (item_type) {

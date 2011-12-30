@@ -22,7 +22,7 @@ endif
 
 DEF_CFLAGS := $(shell [ `uname` = SunOS ] &&                                  \
                 echo ' -D_POSIX_PTHREAD_SEMANTICS -D_REENTRANT')              \
-              $(CFLAGS)
+              -fvisibility=hidden $(CFLAGS)
 DEF_LDFLAGS := $(shell [ `uname` = SunOS ] && echo ' -mimpure-text') $(LDFLAGS)
 LDL_LDFLAGS := $(shell $(CC) -shared -ldl -xc -o /dev/null /dev/null          \
                        >/dev/null 2>&1 && echo ' -ldl')
