@@ -118,29 +118,51 @@ static const char *getUserName(uid_t uid) {
   return user;
 }
 
-static const char *getURL(const char *secret, char **encoderURL,
-                          const int use_totp) {
-  uid_t uid = getuid();
-  const char *user = getUserName(uid);
-  char hostname[128] = { 0 };
-  if (gethostname(hostname, sizeof(hostname)-1)) {
-    strcpy(hostname, "unix");
-  }
-  char *url = malloc(strlen(user) + strlen(hostname) + strlen(secret) + 80);
+static const char *urlEncode(const char *s) {
+  char *ret = malloc(3*strlen(s) + 1);
+  char *d = ret;
+  do {
+    switch (*s) {
+    case '%':
+    case '&':
+    case '?':
+    case '=':
+    encode:
+      sprintf(d, "%%%02X", (unsigned char)*s);
+      d += 3;
+      break;
+    default:
+      if ((*s && *s <= ' ') || *s >= '\x7F') {
+        goto encode;
+      }
+      *d++ = *s;
+      break;
+    }
+  } while (*s++);
+  ret = realloc(ret, strlen(ret) + 1);
+  return ret;
+}
+
+static const char *getURL(const char *secret, const char *label,
+                          char **encoderURL, const int use_totp) {
+  const char *encodedLabel = urlEncode(label);
+  char *url = malloc(strlen(encodedLabel) + strlen(secret) + 80);
   char totp = 'h';
   if (use_totp) {
     totp = 't';
   }
-  sprintf(url, "otpauth://%cotp/%s@%s?secret=%s",
-          totp, user, hostname, secret);
+  sprintf(url, "otpauth://%cotp/%s?secret=%s", totp, encodedLabel, secret);
   if (encoderURL) {
     const char *encoder = "https://www.google.com/chart?chs=200x200&"
                           "chld=M|0&cht=qr&chl=";
-    *encoderURL = malloc(strlen(encoder) + strlen(url) + 6);
-    sprintf(*encoderURL, "%sotpauth://%cotp/%s@%s%%3Fsecret%%3D%s",
-            encoder, totp, user, hostname, secret);
+    const char *encodedURL = urlEncode(url);
+    
+    *encoderURL = strcat(strcpy(malloc(strlen(encoder) +
+                                       strlen(encodedURL) + 1),
+                                encoder), encodedURL);
+    free((void *)encodedURL);
   }
-  free((char *)user);
+  free((void *)encodedLabel);
   return url;
 }
 
@@ -152,12 +174,13 @@ static const char *getURL(const char *secret, char **encoderURL,
 #define UTF8_TOPHALF      "\xE2\x96\x80"
 #define UTF8_BOTTOMHALF   "\xE2\x96\x84"
 
-static void displayQRCode(const char *secret, const int use_totp) {
+static void displayQRCode(const char *secret, const char *label,
+                          const int use_totp) {
   if (qr_mode == QR_NONE) {
     return;
   }
   char *encoderURL;
-  const char *url = getURL(secret, &encoderURL, use_totp);
+  const char *url = getURL(secret, label, &encoderURL, use_totp);
   puts(encoderURL);
 
   // Only newer systems have support for libqrencode. So, instead of requiring
@@ -306,21 +329,22 @@ static char *maybeAddOption(const char *msg, char *buf, size_t nbuf,
 
 static void usage(void) {
   puts(
-    "google-authenticator [<options>]\n"
-    " -h, --help               Print this message\n"
-    " -c, --counter-based      Set up counter-based (HOTP) verification\n"
-    " -t, --time-based         Set up time-based (TOTP) verification\n"
-    " -d, --disallow-reuse     Disallow reuse of previously used TOTP tokens\n"
-    " -D, --allow-reuse        Allow reuse of previously used TOTP tokens\n"
-    " -f, --force              Write file without first confirming with user\n"
-    " -q, --quiet              Quiet mode\n"
-    " -Q, --qr-mode={NONE,ANSI,UTF8}\n"
-    " -r, --rate-limit=N       Limit logins to N per every M seconds\n"
-    " -R, --rate-time=M        Limit logins to N per every M seconds\n"
-    " -u, --no-rate-limit      Disable rate-limiting\n"
-    " -s, --secret=<file>      Specify a non-standard file location\n"
-    " -w, --window-size=W      Set window of concurrently valid codes\n"
-    " -W, --minimal-window     Disable window of concurrently valid codes");
+ "google-authenticator [<options>]\n"
+ " -h, --help               Print this message\n"
+ " -c, --counter-based      Set up counter-based (HOTP) verification\n"
+ " -t, --time-based         Set up time-based (TOTP) verification\n"
+ " -d, --disallow-reuse     Disallow reuse of previously used TOTP tokens\n"
+ " -D, --allow-reuse        Allow reuse of previously used TOTP tokens\n"
+ " -f, --force              Write file without first confirming with user\n"
+ " -l, --label=<label>      Override the default label in \"otpauth://\" URL\n"
+ " -q, --quiet              Quiet mode\n"
+ " -Q, --qr-mode={NONE,ANSI,UTF8}\n"
+ " -r, --rate-limit=N       Limit logins to N per every M seconds\n"
+ " -R, --rate-time=M        Limit logins to N per every M seconds\n"
+ " -u, --no-rate-limit      Disable rate-limiting\n"
+ " -s, --secret=<file>      Specify a non-standard file location\n"
+ " -w, --window-size=W      Set window of concurrently valid codes\n"
+ " -W, --minimal-window     Disable window of concurrently valid codes");
 }
 
 int main(int argc, char *argv[]) {
@@ -344,10 +368,11 @@ int main(int argc, char *argv[]) {
   int force = 0, quiet = 0;
   int r_limit = 0, r_time = 0;
   char *secret_fn = NULL;
+  char *label = NULL;
   int window_size = 0;
   int idx;
   for (;;) {
-    static const char optstring[] = "+hctdDfqQ:r:R:us:w:W";
+    static const char optstring[] = "+hctdDfl:qQ:r:R:us:w:W";
     static struct option options[] = {
       { "help",             0, 0, 'h' },
       { "counter-based",    0, 0, 'c' },
@@ -355,6 +380,7 @@ int main(int argc, char *argv[]) {
       { "disallow-reuse",   0, 0, 'd' },
       { "allow-reuse",      0, 0, 'D' },
       { "force",            0, 0, 'f' },
+      { "label",            1, 0, 'l' },
       { "quiet",            0, 0, 'q' },
       { "qr-mode",          1, 0, 'Q' },
       { "rate-limit",       1, 0, 'r' },
@@ -433,6 +459,13 @@ int main(int argc, char *argv[]) {
         _exit(1);
       }
       force = 1;
+    } else if (!idx--) {
+      // label
+      if (label) {
+        fprintf(stderr, "Duplicate -l option detected\n");
+        _exit(1);
+      }
+      label = strdup(optarg);
     } else if (!idx--) {
       // quiet
       if (quiet) {
@@ -554,6 +587,17 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Must set -r when setting -R, and vice versa\n");
     _exit(1);
   }
+  if (!label) {
+    uid_t uid = getuid();
+    const char *user = getUserName(uid);
+    char hostname[128] = { 0 };
+    if (gethostname(hostname, sizeof(hostname)-1)) {
+      strcpy(hostname, "unix");
+    }
+    label = strcat(strcat(strcpy(malloc(strlen(user) + strlen(hostname) + 2),
+                                 user), "@"), hostname);
+    free((char *)user);
+  }
   int fd = open("/dev/urandom", O_RDONLY);
   if (fd < 0) {
     perror("Failed to open \"/dev/urandom\"");
@@ -573,11 +617,12 @@ int main(int argc, char *argv[]) {
     use_totp = mode == TOTP_MODE;
   }
   if (!quiet) {
-    displayQRCode(secret, use_totp);
+    displayQRCode(secret, label, use_totp);
     printf("Your new secret key is: %s\n", secret);
     printf("Your verification code is %06d\n", generateCode(secret, 0));
     printf("Your emergency scratch codes are:\n");
   }
+  free(label);
   strcat(secret, "\n");
   if (use_totp) {
     strcat(secret, totp);
