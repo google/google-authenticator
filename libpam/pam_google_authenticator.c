@@ -104,6 +104,10 @@ static void log_message(int priority, pam_handle_t *pamh,
 
   va_end(args);
 
+  if (priority == LOG_EMERG) {
+    // Something really bad happened. There is no way we can proceed safely.
+    _exit(1);
+  }
 }
 
 static int converse(pam_handle_t *pamh, int nargs,
@@ -240,7 +244,8 @@ static int setuser(int uid) {
 static int setgroup(int gid) {
 #ifdef HAS_SETFSUID
   // The semantics of setfsgid() are a little unusual. On success, the
-  // previous group id is returned. On failure, the current groupd id is returned.
+  // previous group id is returned. On failure, the current groupd id is
+  // returned.
   int old_gid = setfsgid(gid);
   if (gid != setfsgid(gid)) {
     setfsgid(old_gid);
@@ -283,19 +288,35 @@ static int drop_privileges(pam_handle_t *pamh, const char *username, int uid,
   gid_t gid = pw->pw_gid;
   free(buf);
 
+  int gid_o = setgroup(gid);
   int uid_o = setuser(uid);
   if (uid_o < 0) {
-    log_message(LOG_ERR, pamh, "Failed to change user id to \"%s\"", username);
+    if (gid_o >= 0) {
+      if (setgroup(gid_o) < 0 || setgroup(gid_o) != gid_o) {
+        // Inform the caller that we were unsuccessful in resetting the group.
+        *old_gid = gid_o;
+      }
+    }
+    log_message(LOG_ERR, pamh, "Failed to change user id to \"%s\"",
+                username);
     return -1;
   }
-  int gid_o = setgroup(gid);
-  if (gid_o < 0) {
-    setuser(uid_o);
+  if (gid_o < 0 && (gid_o = setgroup(gid)) < 0) {
+    // In most typical use cases, the PAM module will end up being called
+    // while uid=0. This allows the module to change to an arbitrary group
+    // prior to changing the uid. But there are many ways that PAM modules
+    // can be invoked and in some scenarios this might not work. So, we also
+    // try changing the group _after_ changing the uid. It might just work.
+    if (setuser(uid_o) < 0 || setuser(uid_o) != uid_o) {
+      // Inform the caller that we were unsuccessful in resetting the uid.
+      *old_uid = uid_o;
+    }
     log_message(LOG_ERR, pamh,
                 "Failed to change group id for user \"%s\" to %d", username,
                 (int)gid);
     return -1;
   }
+
   *old_uid = uid_o;
   *old_gid = gid_o;
   return 0;
@@ -1305,7 +1326,7 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
   int        rc = PAM_SESSION_ERR;
   const char *username;
   char       *secret_filename = NULL;
-  int        uid, old_uid = -1, old_gid = -1, fd = -1;
+  int        uid = -1, old_uid = -1, old_gid = -1, fd = -1;
   off_t      filesize = 0;
   time_t     mtime = 0;
   char       *buf = NULL;
@@ -1519,10 +1540,15 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
     close(fd);
   }
   if (old_gid >= 0) {
-    setgroup(old_gid);
+    if (setgroup(old_gid) >= 0 && setgroup(old_gid) == old_gid) {
+      old_gid = -1;
+    }
   }
   if (old_uid >= 0) {
-    setuser(old_uid);
+    if (setuser(old_uid) < 0 || setuser(old_uid) != old_uid) {
+      log_message(LOG_EMERG, pamh, "We switched users from %d to %d, "
+                  "but can't switch back", old_uid, uid);
+    }
   }
   free(secret_filename);
 
