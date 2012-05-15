@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+VERSION := 1.0
+
 .SUFFIXES: .so
 
 ifeq ($(origin CC), default)
@@ -32,6 +34,13 @@ all: google-authenticator pam_google_authenticator.so demo                    \
 
 test: pam_google_authenticator_unittest
 	./pam_google_authenticator_unittest
+
+dist: clean all test
+	$(RM) libpam-google-authenticator-$(VERSION)-source.tar.bz2
+	tar jfc libpam-google-authenticator-$(VERSION)-source.tar.bz2         \
+	    --xform="s,^,libpam-google-authenticator-$(VERSION)/,"            \
+	    --owner=root --group=root                                         \
+	    *.c *.h *.html Makefile FILEFORMAT README utc-time
 
 install: all
 	@dst="`find /lib*/security /lib*/*/security -maxdepth 1               \
@@ -57,7 +66,8 @@ install: all
 
 clean:
 	$(RM) *.o *.so core google-authenticator demo                         \
-	               pam_google_authenticator_unittest
+	               pam_google_authenticator_unittest                      \
+	               libpam-google-authenticator-*-source.tar.bz2
 
 google-authenticator: google-authenticator.o base32.o hmac.o sha1.o
 	$(CC) -g $(DEF_LDFLAGS) -o $@ $+ $(LDL_LDFLAGS)
