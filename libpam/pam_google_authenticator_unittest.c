@@ -209,10 +209,10 @@ int main(int argc, char *argv[]) {
   signal(SIGABRT, print_diagnostics);
 
   // Look up public symbols
-  int (*pam_sm_open_session)(pam_handle_t *, int, int, const char **) =
+  int (*pam_sm_authenticate)(pam_handle_t *, int, int, const char **) =
       (int (*)(pam_handle_t *, int, int, const char **))
-      dlsym(pam_module, "pam_sm_open_session");
-  assert(pam_sm_open_session != NULL);
+      dlsym(pam_module, "pam_sm_authenticate");
+  assert(pam_sm_authenticate != NULL);
 
   // Look up private test-only API
   void (*set_time)(time_t t) =
@@ -234,7 +234,7 @@ int main(int argc, char *argv[]) {
     uint8_t binary_secret[sizeof(secret)];
     size_t binary_secret_len = base32_decode(secret, binary_secret,
                                              sizeof(binary_secret));
-  
+
     // Set up test argc/argv parameters to let the PAM module know where to
     // find our secret file
     const char *targv[] = { malloc(strlen(fn) + 8), NULL, NULL, NULL, NULL };
@@ -242,7 +242,7 @@ int main(int argc, char *argv[]) {
     int targc;
     int expected_good_prompts_shown;
     int expected_bad_prompts_shown;
-  
+
     switch (otp_mode) {
     case 0:
       puts("\nRunning tests, querying for verification code");
@@ -315,32 +315,32 @@ int main(int argc, char *argv[]) {
 
     // Set the timestamp that this test vector needs
     set_time(10000*30);
-  
+
     response = "123456";
 
     // Check if we can log in when using an invalid verification code
     puts("Testing failed login attempt");
-    assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
+    assert(pam_sm_authenticate(NULL, 0, targc, targv) == PAM_AUTH_ERR);
     verify_prompts_shown(expected_bad_prompts_shown);
-  
+
     // Check required number of digits
     if (conv_mode == TWO_PROMPTS) {
       puts("Testing required number of digits");
       response = "50548";
-      assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
+      assert(pam_sm_authenticate(NULL, 0, targc, targv) == PAM_AUTH_ERR);
       verify_prompts_shown(expected_bad_prompts_shown);
       response = "0050548";
-      assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
+      assert(pam_sm_authenticate(NULL, 0, targc, targv) == PAM_AUTH_ERR);
       verify_prompts_shown(expected_bad_prompts_shown);
       response = "00050548";
-      assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
+      assert(pam_sm_authenticate(NULL, 0, targc, targv) == PAM_AUTH_ERR);
       verify_prompts_shown(expected_bad_prompts_shown);
     }
 
     // Test a blank response
     puts("Testing a blank response");
     response = "";
-    assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
+    assert(pam_sm_authenticate(NULL, 0, targc, targv) == PAM_AUTH_ERR);
     verify_prompts_shown(expected_bad_prompts_shown);
 
     // Set the response that we should send back to the authentication module
@@ -350,20 +350,20 @@ int main(int argc, char *argv[]) {
     puts("Test handling of missing state files");
     const char *old_secret = targv[0];
     targv[0] = "secret=/NOSUCHFILE";
-    assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
+    assert(pam_sm_authenticate(NULL, 0, targc, targv) == PAM_AUTH_ERR);
     verify_prompts_shown(0);
     targv[targc++] = "nullok";
     targv[targc] = NULL;
-    assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
+    assert(pam_sm_authenticate(NULL, 0, targc, targv) == PAM_SUCCESS);
     verify_prompts_shown(0);
     targv[--targc] = NULL;
     targv[0] = old_secret;
-  
+
     // Check if we can log in when using a valid verification code
     puts("Testing successful login");
-    assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
+    assert(pam_sm_authenticate(NULL, 0, targc, targv) == PAM_SUCCESS);
     verify_prompts_shown(expected_good_prompts_shown);
-  
+
     // Test the STEP_SIZE option
     puts("Testing STEP_SIZE option");
     assert(!chmod(fn, 0600));
@@ -371,29 +371,29 @@ int main(int argc, char *argv[]) {
     assert(write(fd, "\n\" STEP_SIZE 60\n", 16) == 16);
     close(fd);
     for (int *tm  = (int []){ 9998, 9999, 10001, 10002, 10000, -1 },
-             *res = (int []){ PAM_SESSION_ERR, PAM_SUCCESS, PAM_SUCCESS,
-                              PAM_SESSION_ERR, PAM_SUCCESS };
+             *res = (int []){ PAM_AUTH_ERR, PAM_SUCCESS, PAM_SUCCESS,
+                              PAM_AUTH_ERR, PAM_SUCCESS };
          *tm >= 0;) {
       set_time(*tm++ * 60);
-      assert(pam_sm_open_session(NULL, 0, targc, targv) == *res++);
+      assert(pam_sm_authenticate(NULL, 0, targc, targv) == *res++);
       verify_prompts_shown(expected_good_prompts_shown);
     }
-  
+
     // Reset secret file after step size testing.
     assert(!chmod(fn, 0600));
     assert((fd = open(fn, O_TRUNC | O_WRONLY)) >= 0);
     assert(write(fd, secret, sizeof(secret)-1) == sizeof(secret)-1);
     assert(write(fd, "\n\" TOTP_AUTH", 12) == 12);
     close(fd);
-  
+
     // Test the WINDOW_SIZE option
     puts("Testing WINDOW_SIZE option");
     for (int *tm  = (int []){ 9998, 9999, 10001, 10002, 10000, -1 },
-             *res = (int []){ PAM_SESSION_ERR, PAM_SUCCESS, PAM_SUCCESS,
-                              PAM_SESSION_ERR, PAM_SUCCESS };
+             *res = (int []){ PAM_AUTH_ERR, PAM_SUCCESS, PAM_SUCCESS,
+                              PAM_AUTH_ERR, PAM_SUCCESS };
          *tm >= 0;) {
       set_time(*tm++ * 30);
-      assert(pam_sm_open_session(NULL, 0, targc, targv) == *res++);
+      assert(pam_sm_authenticate(NULL, 0, targc, targv) == *res++);
       verify_prompts_shown(expected_good_prompts_shown);
     }
     assert(!chmod(fn, 0600));
@@ -401,27 +401,27 @@ int main(int argc, char *argv[]) {
     assert(write(fd, "\n\" WINDOW_SIZE 6\n", 17) == 17);
     close(fd);
     for (int *tm  = (int []){ 9996, 9997, 10002, 10003, 10000, -1 },
-             *res = (int []){ PAM_SESSION_ERR, PAM_SUCCESS, PAM_SUCCESS,
-                              PAM_SESSION_ERR, PAM_SUCCESS };
+             *res = (int []){ PAM_AUTH_ERR, PAM_SUCCESS, PAM_SUCCESS,
+                              PAM_AUTH_ERR, PAM_SUCCESS };
          *tm >= 0;) {
       set_time(*tm++ * 30);
-      assert(pam_sm_open_session(NULL, 0, targc, targv) == *res++);
+      assert(pam_sm_authenticate(NULL, 0, targc, targv) == *res++);
       verify_prompts_shown(expected_good_prompts_shown);
     }
-  
+
     // Test the DISALLOW_REUSE option
     puts("Testing DISALLOW_REUSE option");
-    assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
+    assert(pam_sm_authenticate(NULL, 0, targc, targv) == PAM_SUCCESS);
     verify_prompts_shown(expected_good_prompts_shown);
     assert(!chmod(fn, 0600));
     assert((fd = open(fn, O_APPEND | O_WRONLY)) >= 0);
     assert(write(fd, "\" DISALLOW_REUSE\n", 17) == 17);
     close(fd);
-    assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
+    assert(pam_sm_authenticate(NULL, 0, targc, targv) == PAM_SUCCESS);
     verify_prompts_shown(expected_good_prompts_shown);
-    assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
+    assert(pam_sm_authenticate(NULL, 0, targc, targv) == PAM_AUTH_ERR);
     verify_prompts_shown(expected_good_prompts_shown);
-  
+
     // Test that DISALLOW_REUSE expires old entries from the re-use list
     char *old_response = response;
     for (int i = 10001; i < 10008; ++i) {
@@ -430,7 +430,7 @@ int main(int argc, char *argv[]) {
       response = buf;
       sprintf(response, "%06d", compute_code(binary_secret,
                                              binary_secret_len, i));
-      assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
+      assert(pam_sm_authenticate(NULL, 0, targc, targv) == PAM_SUCCESS);
       verify_prompts_shown(expected_good_prompts_shown);
     }
     set_time(10000 * 30);
@@ -443,7 +443,7 @@ int main(int argc, char *argv[]) {
     assert(disallow);
     assert(!memcmp(disallow + 17,
                    "10002 10003 10004 10005 10006 10007\n", 36));
-  
+
     // Test the RATE_LIMIT option
     puts("Testing RATE_LIMIT option");
     assert(!chmod(fn, 0600));
@@ -452,14 +452,14 @@ int main(int argc, char *argv[]) {
     close(fd);
     for (int *tm  = (int []){ 20000, 20001, 20002, 20003, 20004, 20006, -1 },
              *res = (int []){ PAM_SUCCESS, PAM_SUCCESS, PAM_SUCCESS,
-                              PAM_SUCCESS, PAM_SESSION_ERR, PAM_SUCCESS, -1 };
+                              PAM_SUCCESS, PAM_AUTH_ERR, PAM_SUCCESS, -1 };
          *tm >= 0;) {
       set_time(*tm * 30);
       char buf[7];
       response = buf;
       sprintf(response, "%06d",
               compute_code(binary_secret, binary_secret_len, *tm++));
-      assert(pam_sm_open_session(NULL, 0, targc, targv) == *res);
+      assert(pam_sm_authenticate(NULL, 0, targc, targv) == *res);
       verify_prompts_shown(
           *res != PAM_SUCCESS ? 0 : expected_good_prompts_shown);
       ++res;
@@ -474,7 +474,7 @@ int main(int argc, char *argv[]) {
     assert(rate_limit);
     assert(!memcmp(rate_limit + 13,
                    "4 120 600060 600090 600120 600180\n", 35));
-    
+
     // Test trailing space in RATE_LIMIT. This is considered a file format
     // error.
     char *eol = strchr(rate_limit, '\n');
@@ -483,7 +483,7 @@ int main(int argc, char *argv[]) {
     assert(write(fd, state_file_buf, strlen(state_file_buf)) ==
            strlen(state_file_buf));
     close(fd);
-    assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
+    assert(pam_sm_authenticate(NULL, 0, targc, targv) == PAM_AUTH_ERR);
     verify_prompts_shown(0);
     assert(!strncmp(get_error_msg(),
                     "Invalid list of timestamps in RATE_LIMIT", 40));
@@ -493,7 +493,7 @@ int main(int argc, char *argv[]) {
     assert(write(fd, state_file_buf, strlen(state_file_buf)) ==
            strlen(state_file_buf));
     close(fd);
-  
+
     // Test TIME_SKEW option
     puts("Testing TIME_SKEW");
     for (int i = 0; i < 4; ++i) {
@@ -502,8 +502,8 @@ int main(int argc, char *argv[]) {
       response = buf;
       sprintf(response, "%06d",
               compute_code(binary_secret, binary_secret_len, 11000 + i));
-      assert(pam_sm_open_session(NULL, 0, targc, targv) ==
-             (i >= 2 ? PAM_SUCCESS : PAM_SESSION_ERR));
+      assert(pam_sm_authenticate(NULL, 0, targc, targv) ==
+             (i >= 2 ? PAM_SUCCESS : PAM_AUTH_ERR));
       verify_prompts_shown(expected_good_prompts_shown);
     }
     set_time(12010 * 30);
@@ -511,40 +511,40 @@ int main(int argc, char *argv[]) {
     response = buf;
     sprintf(response, "%06d", compute_code(binary_secret,
                                            binary_secret_len, 11010));
-    assert(pam_sm_open_session(NULL, 0, 1,
+    assert(pam_sm_authenticate(NULL, 0, 1,
                                (const char *[]){ "noskewadj", 0 }) ==
-           PAM_SESSION_ERR);
+           PAM_AUTH_ERR);
     verify_prompts_shown(0);
     set_time(10000*30);
-    
+
     // Test scratch codes
     puts("Testing scratch codes");
     response = "12345678";
-    assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
+    assert(pam_sm_authenticate(NULL, 0, targc, targv) == PAM_AUTH_ERR);
     verify_prompts_shown(expected_bad_prompts_shown);
     assert(!chmod(fn, 0600));
     assert((fd = open(fn, O_APPEND | O_WRONLY)) >= 0);
     assert(write(fd, "12345678\n", 9) == 9);
     close(fd);
-    assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
+    assert(pam_sm_authenticate(NULL, 0, targc, targv) == PAM_SUCCESS);
     verify_prompts_shown(expected_good_prompts_shown);
-    assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
+    assert(pam_sm_authenticate(NULL, 0, targc, targv) == PAM_AUTH_ERR);
     verify_prompts_shown(expected_bad_prompts_shown);
-  
+
     // Set up secret file for counter-based codes.
     assert(!chmod(fn, 0600));
     assert((fd = open(fn, O_TRUNC | O_WRONLY)) >= 0);
     assert(write(fd, secret, sizeof(secret)-1) == sizeof(secret)-1);
     assert(write(fd, "\n\" HOTP_COUNTER 1\n", 18) == 18);
     close(fd);
-  
+
     response = "293240";
-  
+
     // Check if we can log in when using a valid verification code
     puts("Testing successful counter-based login");
-    assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
+    assert(pam_sm_authenticate(NULL, 0, targc, targv) == PAM_SUCCESS);
     verify_prompts_shown(expected_good_prompts_shown);
-  
+
     // Verify that the hotp counter incremented
     assert((fd = open(fn, O_RDONLY)) >= 0);
     memset(state_file_buf, 0, sizeof(state_file_buf));
@@ -553,13 +553,13 @@ int main(int argc, char *argv[]) {
     const char *hotp_counter = strstr(state_file_buf, "\" HOTP_COUNTER ");
     assert(hotp_counter);
     assert(!memcmp(hotp_counter + 15, "2\n", 2));
-  
+
     // Check if we can log in when using an invalid verification code
     // (including the same code a second time)
     puts("Testing failed counter-based login attempt");
-    assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
+    assert(pam_sm_authenticate(NULL, 0, targc, targv) == PAM_AUTH_ERR);
     verify_prompts_shown(expected_bad_prompts_shown);
-  
+
     // Verify that the hotp counter incremented
     assert((fd = open(fn, O_RDONLY)) >= 0);
     memset(state_file_buf, 0, sizeof(state_file_buf));
@@ -568,15 +568,15 @@ int main(int argc, char *argv[]) {
     hotp_counter = strstr(state_file_buf, "\" HOTP_COUNTER ");
     assert(hotp_counter);
     assert(!memcmp(hotp_counter + 15, "3\n", 2));
-  
+
     response = "932068";
-  
+
     // Check if we can log in using a future valid verification code (using
     // default window_size of 3)
     puts("Testing successful future counter-based login");
-    assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
+    assert(pam_sm_authenticate(NULL, 0, targc, targv) == PAM_SUCCESS);
     verify_prompts_shown(expected_good_prompts_shown);
-  
+
     // Verify that the hotp counter incremented
     assert((fd = open(fn, O_RDONLY)) >= 0);
     memset(state_file_buf, 0, sizeof(state_file_buf));
@@ -585,7 +585,7 @@ int main(int argc, char *argv[]) {
     hotp_counter = strstr(state_file_buf, "\" HOTP_COUNTER ");
     assert(hotp_counter);
     assert(!memcmp(hotp_counter + 15, "6\n", 2));
-  
+
     // Remove the temporarily created secret file
     unlink(fn);
 

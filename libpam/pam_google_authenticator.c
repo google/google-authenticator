@@ -46,7 +46,6 @@
 #endif
 
 #define PAM_SM_AUTH
-#define PAM_SM_SESSION
 #include <security/pam_appl.h>
 #include <security/pam_modules.h>
 
@@ -1409,7 +1408,7 @@ static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
 
 static int google_authenticator(pam_handle_t *pamh, int flags,
                                 int argc, const char **argv) {
-  int        rc = PAM_SESSION_ERR;
+  int        rc = PAM_AUTH_ERR;
   const char *username;
   char       *secret_filename = NULL;
   int        uid = -1, old_uid = -1, old_gid = -1, fd = -1;
@@ -1457,7 +1456,7 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
           free(pw);
           pw = NULL;
         }
-        rc = PAM_SESSION_ERR;
+        rc = PAM_AUTH_ERR;
         break;
       }
       switch (mode) {
@@ -1471,7 +1470,7 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
       default:
         if (mode != 2 && // Prompt for pw and possible verification code
             mode != 3) { // Prompt for pw and possible scratch code
-          rc = PAM_SESSION_ERR;
+          rc = PAM_AUTH_ERR;
           continue;
         }
         if (params.pass_mode == PROMPT ||
@@ -1576,7 +1575,7 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
     // code from the end of the password.
     if (rc == PAM_SUCCESS && params.forward_pass) {
       if (!pw || pam_set_item(pamh, PAM_AUTHTOK, pw) != PAM_SUCCESS) {
-        rc = PAM_SESSION_ERR;
+        rc = PAM_AUTH_ERR;
       }
     }
 
@@ -1596,7 +1595,7 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
       char counter_str[40];
       sprintf(counter_str, "%ld", hotp_counter + 1);
       if (set_cfg_value(pamh, "HOTP_COUNTER", counter_str, &buf) < 0) {
-        rc = PAM_SESSION_ERR;
+        rc = PAM_AUTH_ERR;
       }
       updated = 1;
     }
@@ -1619,7 +1618,7 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
     if (write_file_contents(pamh, &params, secret_filename, filesize,
                             mtime, buf) < 0) {
       // Could not persist new state. Deny access.
-      rc = PAM_SESSION_ERR;
+      rc = PAM_AUTH_ERR;
     }
   }
   if (fd >= 0) {
@@ -1660,18 +1659,13 @@ PAM_EXTERN int pam_sm_setcred(pam_handle_t *pamh, int flags, int argc,
   return PAM_SUCCESS;
 }
 
-PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags,
-                                   int argc, const char **argv) {
-  return google_authenticator(pamh, flags, argc, argv);
-}
-
 #ifdef PAM_STATIC
 struct pam_module _pam_listfile_modstruct = {
   MODULE_NAME,
   pam_sm_authenticate,
   pam_sm_setcred,
   NULL,
-  pam_sm_open_session,
+  NULL,
   NULL,
   NULL
 };
