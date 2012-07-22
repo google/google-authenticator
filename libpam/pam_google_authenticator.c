@@ -781,6 +781,9 @@ static char *request_pass(pam_handle_t *pamh, int echocode,
   if (retval != PAM_SUCCESS || resp == NULL || resp->resp == NULL ||
       *resp->resp == '\000') {
     log_message(LOG_ERR, pamh, "Did not receive verification code from user");
+    if (retval == PAM_SUCCESS && resp && resp->resp) {
+      ret = resp->resp;
+    }
   } else {
     ret = resp->resp;
   }

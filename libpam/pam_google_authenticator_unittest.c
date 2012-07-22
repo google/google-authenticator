@@ -42,9 +42,12 @@ static const char pw[] = "0123456789";
 static char *response = "";
 static void *pam_module;
 static enum { TWO_PROMPTS, COMBINED_PASSWORD, COMBINED_PROMPT } conv_mode;
+static int num_prompts_shown = 0;
 
 static int conversation(int num_msg, const struct pam_message **msg,
                         struct pam_response **resp, void *appdata_ptr) {
+  // Keep track of how often the conversation callback is executed.
+  ++num_prompts_shown;
   if (conv_mode == COMBINED_PASSWORD) {
     return PAM_CONV_ERR;
   }
@@ -128,6 +131,12 @@ static void print_diagnostics(int signo) {
     fprintf(stderr, "%s\n", get_error_msg());
   }
   _exit(1);
+}
+
+static void verify_prompts_shown(int expected_prompts_shown) {
+  assert(num_prompts_shown == expected_prompts_shown);
+  // Reset for the next count.
+  num_prompts_shown = 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -228,12 +237,15 @@ int main(int argc, char *argv[]) {
     const char *targv[] = { malloc(strlen(fn) + 8), NULL, NULL, NULL, NULL };
     strcat(strcpy((char *)targv[0], "secret="), fn);
     int targc;
+    int expected_good_prompts_shown;
+    int expected_bad_prompts_shown;
   
     switch (otp_mode) {
     case 0:
       puts("\nRunning tests, querying for verification code");
       conv_mode = TWO_PROMPTS;
       targc = 1;
+      expected_good_prompts_shown = expected_bad_prompts_shown = 1;
       break;
     case 1:
       puts("\nRunning tests, querying for verification code, "
@@ -241,12 +253,14 @@ int main(int argc, char *argv[]) {
       conv_mode = COMBINED_PROMPT;
       targv[1] = strdup("forward_pass");
       targc = 2;
+      expected_good_prompts_shown = expected_bad_prompts_shown = 1;
       break;
     case 2:
       puts("\nRunning tests with use_first_pass");
       conv_mode = COMBINED_PASSWORD;
       targv[1] = strdup("use_first_pass");
       targc = 2;
+      expected_good_prompts_shown = expected_bad_prompts_shown = 0;
       break;
     case 3:
       puts("\nRunning tests with use_first_pass, forwarding system pass");
@@ -254,12 +268,15 @@ int main(int argc, char *argv[]) {
       targv[1] = strdup("use_first_pass");
       targv[2] = strdup("forward_pass");
       targc = 3;
+      expected_good_prompts_shown = expected_bad_prompts_shown = 0;
       break;
     case 4:
       puts("\nRunning tests with try_first_pass, combining codes");
       conv_mode = COMBINED_PASSWORD;
       targv[1] = strdup("try_first_pass");
       targc = 2;
+      expected_good_prompts_shown = 0;
+      expected_bad_prompts_shown = 2;
       break;
     case 5:
       puts("\nRunning tests with try_first_pass, combining codes, "
@@ -268,12 +285,15 @@ int main(int argc, char *argv[]) {
       targv[1] = strdup("try_first_pass");
       targv[2] = strdup("forward_pass");
       targc = 3;
+      expected_good_prompts_shown = 0;
+      expected_bad_prompts_shown = 2;
       break;
     case 6:
       puts("\nRunning tests with try_first_pass, querying for codes");
       conv_mode = TWO_PROMPTS;
       targv[1] = strdup("try_first_pass");
       targc = 2;
+      expected_good_prompts_shown = expected_bad_prompts_shown = 1;
       break;
     default:
       assert(otp_mode == 7);
@@ -283,26 +303,42 @@ int main(int argc, char *argv[]) {
       targv[1] = strdup("try_first_pass");
       targv[2] = strdup("forward_pass");
       targc = 3;
+      expected_good_prompts_shown = expected_bad_prompts_shown = 1;
       break;
     }
+
+    // Make sure num_prompts_shown is still 0.
+    verify_prompts_shown(0);
 
     // Set the timestamp that this test vector needs
     set_time(10000*30);
   
-    // Check if we can log in when using a valid verification code
+    response = "123456";
+
+    // Check if we can log in when using an invalid verification code
     puts("Testing failed login attempt");
     assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
+    verify_prompts_shown(expected_bad_prompts_shown);
   
     // Check required number of digits
     if (conv_mode == TWO_PROMPTS) {
       puts("Testing required number of digits");
       response = "50548";
       assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
+      verify_prompts_shown(expected_bad_prompts_shown);
       response = "0050548";
       assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
+      verify_prompts_shown(expected_bad_prompts_shown);
       response = "00050548";
       assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
+      verify_prompts_shown(expected_bad_prompts_shown);
     }
+
+    // Test a blank response
+    puts("Testing a blank response");
+    response = "";
+    assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
+    verify_prompts_shown(expected_bad_prompts_shown);
 
     // Set the response that we should send back to the authentication module
     response = "050548";
@@ -312,15 +348,18 @@ int main(int argc, char *argv[]) {
     const char *old_secret = targv[0];
     targv[0] = "secret=/NOSUCHFILE";
     assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
+    verify_prompts_shown(0);
     targv[targc++] = "nullok";
     targv[targc] = NULL;
     assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
+    verify_prompts_shown(0);
     targv[--targc] = NULL;
     targv[0] = old_secret;
   
     // Check if we can log in when using a valid verification code
     puts("Testing successful login");
     assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
+    verify_prompts_shown(expected_good_prompts_shown);
   
     // Test the WINDOW_SIZE option
     puts("Testing WINDOW_SIZE option");
@@ -330,6 +369,7 @@ int main(int argc, char *argv[]) {
          *tm >= 0;) {
       set_time(*tm++ * 30);
       assert(pam_sm_open_session(NULL, 0, targc, targv) == *res++);
+      verify_prompts_shown(expected_good_prompts_shown);
     }
     assert(!chmod(fn, 0600));
     assert((fd = open(fn, O_APPEND | O_WRONLY)) >= 0);
@@ -341,17 +381,21 @@ int main(int argc, char *argv[]) {
          *tm >= 0;) {
       set_time(*tm++ * 30);
       assert(pam_sm_open_session(NULL, 0, targc, targv) == *res++);
+      verify_prompts_shown(expected_good_prompts_shown);
     }
   
     // Test the DISALLOW_REUSE option
     puts("Testing DISALLOW_REUSE option");
     assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
+    verify_prompts_shown(expected_good_prompts_shown);
     assert(!chmod(fn, 0600));
     assert((fd = open(fn, O_APPEND | O_WRONLY)) >= 0);
     assert(write(fd, "\" DISALLOW_REUSE\n", 17) == 17);
     close(fd);
     assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
+    verify_prompts_shown(expected_good_prompts_shown);
     assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
+    verify_prompts_shown(expected_good_prompts_shown);
   
     // Test that DISALLOW_REUSE expires old entries from the re-use list
     char *old_response = response;
@@ -362,6 +406,7 @@ int main(int argc, char *argv[]) {
       sprintf(response, "%06d", compute_code(binary_secret,
                                              binary_secret_len, i));
       assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
+      verify_prompts_shown(expected_good_prompts_shown);
     }
     set_time(10000 * 30);
     response = old_response;
@@ -389,7 +434,10 @@ int main(int argc, char *argv[]) {
       response = buf;
       sprintf(response, "%06d",
               compute_code(binary_secret, binary_secret_len, *tm++));
-      assert(pam_sm_open_session(NULL, 0, targc, targv) == *res++);
+      assert(pam_sm_open_session(NULL, 0, targc, targv) == *res);
+      verify_prompts_shown(
+          *res != PAM_SUCCESS ? 0 : expected_good_prompts_shown);
+      ++res;
     }
     set_time(10000 * 30);
     response = old_response;
@@ -411,6 +459,7 @@ int main(int argc, char *argv[]) {
            strlen(state_file_buf));
     close(fd);
     assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
+    verify_prompts_shown(0);
     assert(!strncmp(get_error_msg(),
                     "Invalid list of timestamps in RATE_LIMIT", 40));
     *eol = '\n';
@@ -430,6 +479,7 @@ int main(int argc, char *argv[]) {
               compute_code(binary_secret, binary_secret_len, 11000 + i));
       assert(pam_sm_open_session(NULL, 0, targc, targv) ==
              (i >= 2 ? PAM_SUCCESS : PAM_SESSION_ERR));
+      verify_prompts_shown(expected_good_prompts_shown);
     }
     set_time(12010 * 30);
     char buf[7];
@@ -439,18 +489,22 @@ int main(int argc, char *argv[]) {
     assert(pam_sm_open_session(NULL, 0, 1,
                                (const char *[]){ "noskewadj", 0 }) ==
            PAM_SESSION_ERR);
+    verify_prompts_shown(0);
     set_time(10000*30);
     
     // Test scratch codes
     puts("Testing scratch codes");
     response = "12345678";
     assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
+    verify_prompts_shown(expected_bad_prompts_shown);
     assert(!chmod(fn, 0600));
     assert((fd = open(fn, O_APPEND | O_WRONLY)) >= 0);
     assert(write(fd, "12345678\n", 9) == 9);
     close(fd);
     assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
+    verify_prompts_shown(expected_good_prompts_shown);
     assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
+    verify_prompts_shown(expected_bad_prompts_shown);
   
     // Set up secret file for counter-based codes.
     assert(!chmod(fn, 0600));
@@ -464,6 +518,7 @@ int main(int argc, char *argv[]) {
     // Check if we can log in when using a valid verification code
     puts("Testing successful counter-based login");
     assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
+    verify_prompts_shown(expected_good_prompts_shown);
   
     // Verify that the hotp counter incremented
     assert((fd = open(fn, O_RDONLY)) >= 0);
@@ -478,6 +533,7 @@ int main(int argc, char *argv[]) {
     // (including the same code a second time)
     puts("Testing failed counter-based login attempt");
     assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SESSION_ERR);
+    verify_prompts_shown(expected_bad_prompts_shown);
   
     // Verify that the hotp counter incremented
     assert((fd = open(fn, O_RDONLY)) >= 0);
@@ -494,6 +550,7 @@ int main(int argc, char *argv[]) {
     // default window_size of 3)
     puts("Testing successful future counter-based login");
     assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
+    verify_prompts_shown(expected_good_prompts_shown);
   
     // Verify that the hotp counter incremented
     assert((fd = open(fn, O_RDONLY)) >= 0);
