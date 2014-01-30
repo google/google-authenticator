@@ -63,6 +63,7 @@ typedef struct Params {
   int        noskewadj;
   int        echocode;
   int        fixed_uid;
+  int        no_increment_hotp;
   uid_t      uid;
   enum { PROMPT = 0, TRY_FIRST_PASS, USE_FIRST_PASS } pass_mode;
   int        forward_pass;
@@ -1311,6 +1312,8 @@ static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
       params->forward_pass = 1;
     } else if (!strcmp(argv[i], "noskewadj")) {
       params->noskewadj = 1;
+    } else if (!strcmp(argv[i], "no_increment_hotp")) {
+      params->no_increment_hotp = 1;
     } else if (!strcmp(argv[i], "nullok")) {
       params->nullok = NULLOK;
     } else if (!strcmp(argv[i], "echo-verification-code") ||
@@ -1508,8 +1511,8 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
     }
 
     // If an hotp login attempt has been made, the counter must always be
-    // advanced by at least one.
-    if (must_advance_counter) {
+    // advanced by at least one, unless this has been disabled.
+    if (!params.no_increment_hotp && must_advance_counter) {
       char counter_str[40];
       sprintf(counter_str, "%ld", hotp_counter + 1);
       if (set_cfg_value(pamh, "HOTP_COUNTER", counter_str, &buf) < 0) {
