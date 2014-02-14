@@ -738,7 +738,7 @@ int main(int argc, char *argv[]) {
                    secret, sizeof(secret), ratelimit);
   } else if (r_limit > 0 && r_time > 0) {
     char buf[80];
-    sprintf(buf, "\"RATE_LIMIT %d %d\n", r_limit, r_time);
+    sprintf(buf, "\" RATE_LIMIT %d %d\n", r_limit, r_time);
     addOption(secret, sizeof(secret), buf);
   }
 
