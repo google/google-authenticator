@@ -144,19 +144,34 @@ static const char *urlEncode(const char *s) {
 }
 
 static const char *getURL(const char *secret, const char *label,
-                          char **encoderURL, const int use_totp) {
+                          char **encoderURL, const int use_totp, const char *issuer) {
   const char *encodedLabel = urlEncode(label);
-  char *url = malloc(strlen(encodedLabel) + strlen(secret) + 80);
-  char totp = 'h';
-  if (use_totp) {
-    totp = 't';
+  char *url;
+  char totp = use_totp ? 'h' : 't';
+  if (asprintf(&url, "otpauth://%cotp/%s?secret=%s", totp, encodedLabel, secret) < 0) {
+    fprintf(stderr, "String allocation failed, probably running out of memory.\n");
+    _exit(1);
   }
-  sprintf(url, "otpauth://%cotp/%s?secret=%s", totp, encodedLabel, secret);
+
+  if (issuer != NULL && strlen(issuer) > 0) {
+    // Append to URL &issuer=<issuer>
+    const char *encodedIssuer = urlEncode(issuer);
+    char *newUrl;
+    if (asprintf(&newUrl, "%s&issuer=%s", url, encodedIssuer) < 0) {
+      fprintf(stderr, "String allocation failed, probably running out of memory.\n");
+      _exit(1);
+    }
+    free((void *)encodedIssuer);
+    free(url);
+    url = newUrl;
+  }
+
   if (encoderURL) {
+    // Show a QR code.
     const char *encoder = "https://www.google.com/chart?chs=200x200&"
                           "chld=M|0&cht=qr&chl=";
     const char *encodedURL = urlEncode(url);
-    
+
     *encoderURL = strcat(strcpy(malloc(strlen(encoder) +
                                        strlen(encodedURL) + 1),
                                 encoder), encodedURL);
@@ -175,12 +190,12 @@ static const char *getURL(const char *secret, const char *label,
 #define UTF8_BOTTOMHALF   "\xE2\x96\x84"
 
 static void displayQRCode(const char *secret, const char *label,
-                          const int use_totp) {
+                          const int use_totp, const char *issuer) {
   if (qr_mode == QR_NONE) {
     return;
   }
   char *encoderURL;
-  const char *url = getURL(secret, label, &encoderURL, use_totp);
+  const char *url = getURL(secret, label, &encoderURL, use_totp, issuer);
   puts(encoderURL);
 
   // Only newer systems have support for libqrencode. So, instead of requiring
@@ -337,6 +352,7 @@ static void usage(void) {
  " -D, --allow-reuse        Allow reuse of previously used TOTP tokens\n"
  " -f, --force              Write file without first confirming with user\n"
  " -l, --label=<label>      Override the default label in \"otpauth://\" URL\n"
+ " -i, --issuer=<issuer>    Override the default issuer in \"otpauth://\" URL\n"
  " -q, --quiet              Quiet mode\n"
  " -Q, --qr-mode={NONE,ANSI,UTF8}\n"
  " -r, --rate-limit=N       Limit logins to N per every M seconds\n"
@@ -369,10 +385,11 @@ int main(int argc, char *argv[]) {
   int r_limit = 0, r_time = 0;
   char *secret_fn = NULL;
   char *label = NULL;
+  char *issuer = NULL;
   int window_size = 0;
   int idx;
   for (;;) {
-    static const char optstring[] = "+hctdDfl:qQ:r:R:us:w:W";
+    static const char optstring[] = "+hctdDfl:i:qQ:r:R:us:w:W";
     static struct option options[] = {
       { "help",             0, 0, 'h' },
       { "counter-based",    0, 0, 'c' },
@@ -381,6 +398,7 @@ int main(int argc, char *argv[]) {
       { "allow-reuse",      0, 0, 'D' },
       { "force",            0, 0, 'f' },
       { "label",            1, 0, 'l' },
+      { "issuer",           1, 0, 'i' },
       { "quiet",            0, 0, 'q' },
       { "qr-mode",          1, 0, 'Q' },
       { "rate-limit",       1, 0, 'r' },
@@ -466,6 +484,13 @@ int main(int argc, char *argv[]) {
         _exit(1);
       }
       label = strdup(optarg);
+    } else if (!idx--) {
+      // issuer
+      if (issuer) {
+        fprintf(stderr, "Duplicate -i option detected\n");
+        _exit(1);
+      }
+      issuer = strdup(optarg);
     } else if (!idx--) {
       // quiet
       if (quiet) {
@@ -598,6 +623,14 @@ int main(int argc, char *argv[]) {
                                  user), "@"), hostname);
     free((char *)user);
   }
+  if (!issuer) {
+    char hostname[128] = { 0 };
+    if (gethostname(hostname, sizeof(hostname)-1)) {
+      strcpy(hostname, "unix");
+    }
+
+    issuer = strdup(hostname);
+  }
   int fd = open("/dev/urandom", O_RDONLY);
   if (fd < 0) {
     perror("Failed to open \"/dev/urandom\"");
@@ -617,12 +650,13 @@ int main(int argc, char *argv[]) {
     use_totp = mode == TOTP_MODE;
   }
   if (!quiet) {
-    displayQRCode(secret, label, use_totp);
+    displayQRCode(secret, label, use_totp, issuer);
     printf("Your new secret key is: %s\n", secret);
     printf("Your verification code is %06d\n", generateCode(secret, 0));
     printf("Your emergency scratch codes are:\n");
   }
   free(label);
+  free(issuer);
   strcat(secret, "\n");
   if (use_totp) {
     strcat(secret, totp);
