@@ -200,9 +200,12 @@ int main(int argc, char *argv[]) {
 
   // Load the PAM module
   puts("Loading PAM module");
-  pam_module = dlopen("./pam_google_authenticator_testing.so",
-                      RTLD_LAZY | RTLD_GLOBAL);
-  assert(pam_module != NULL);
+  pam_module = dlopen("./.libs/libpam_google_authenticator_testing.so",
+                      RTLD_NOW | RTLD_GLOBAL);
+  if (pam_module == NULL) {
+    fprintf(stderr, "dlopen(): %s\n", dlerror());
+    exit(1);
+  }
   signal(SIGABRT, print_diagnostics);
 
   // Look up public symbols

@@ -14,6 +14,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include "config.h"
 
 #define _GNU_SOURCE
 #include <errno.h>
@@ -30,11 +31,10 @@
 #include <time.h>
 #include <unistd.h>
 
-#ifdef linux
+#ifdef HAVE_SYS_FSUID_H
 // We much rather prefer to use setfsuid(), but this function is unfortunately
 // not available on all systems.
 #include <sys/fsuid.h>
-#define HAS_SETFSUID
 #endif
 
 #ifndef PAM_EXTERN
@@ -225,7 +225,7 @@ static char *get_secret_filename(pam_handle_t *pamh, const Params *params,
 }
 
 static int setuser(int uid) {
-#ifdef HAS_SETFSUID
+#ifdef HAVE_SETFSUID
   // The semantics for setfsuid() are a little unusual. On success, the
   // previous user id is returned. On failure, the current user id is returned.
   int old_uid = setfsuid(uid);
@@ -234,6 +234,9 @@ static int setuser(int uid) {
     return -1;
   }
 #else
+#ifdef linux
+#error "Linux should have setfsuid(). Refusing to build."
+#endif
   int old_uid = geteuid();
   if (old_uid != uid && seteuid(uid)) {
     return -1;
