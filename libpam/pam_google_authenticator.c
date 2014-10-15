@@ -1574,24 +1574,15 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
 }
 
 PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,
-                                   int argc, const char **argv)
-  __attribute__((visibility("default")));
-PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags,
                                    int argc, const char **argv) {
   return google_authenticator(pamh, flags, argc, argv);
 }
 
 PAM_EXTERN int pam_sm_setcred(pam_handle_t *pamh, int flags, int argc,
-                                     const char **argv)
-  __attribute__((visibility("default")));
-PAM_EXTERN int pam_sm_setcred(pam_handle_t *pamh, int flags, int argc,
-                                     const char **argv) {
+                              const char **argv) {
   return PAM_SUCCESS;
 }
 
-PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags,
-                                   int argc, const char **argv)
-  __attribute__((visibility("default")));
 PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags,
                                    int argc, const char **argv) {
   return google_authenticator(pamh, flags, argc, argv);
