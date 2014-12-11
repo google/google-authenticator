@@ -147,7 +147,7 @@ static const char *getURL(const char *secret, const char *label,
                           char **encoderURL, const int use_totp, const char *issuer) {
   const char *encodedLabel = urlEncode(label);
   char *url;
-  char totp = use_totp ? 'h' : 't';
+  char totp = use_totp ? 't' : 'h';
   if (asprintf(&url, "otpauth://%cotp/%s?secret=%s", totp, encodedLabel, secret) < 0) {
     fprintf(stderr, "String allocation failed, probably running out of memory.\n");
     _exit(1);
