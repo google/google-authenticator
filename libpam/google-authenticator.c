@@ -311,16 +311,37 @@ static void displayQRCode(const char *secret, const char *label,
 }
 
 static int maybe(const char *msg) {
-  printf("\n%s (y/n) ", msg);
-  fflush(stdout);
-  char ch;
-  do {
-    ch = getchar();
-  } while (ch == ' ' || ch == '\r' || ch == '\n');
-  if (ch == 'y' || ch == 'Y') {
-    return 1;
+  printf("\n");
+  for (;;) {
+    char* line = NULL;
+    size_t len = 0;
+    printf("%s (y/n) ", msg);
+    fflush(stdout);
+
+    if (0 > getline(&line, &len, stdin)) {
+      if (errno == 0) {
+        printf("\n");
+      } else {
+        perror("getline()");
+      }
+      exit(1);
+    }
+    if (len < 1) {
+      free(line);
+      continue;
+    }
+
+    switch (line[0]) {
+    case 'Y':
+    case 'y':
+      free(line);
+      return 1;
+    case 'N':
+    case 'n':
+      free(line);
+      return 0;
+    }
   }
-  return 0;
 }
 
 static char *addOption(char *buf, size_t nbuf, const char *option) {
