@@ -13,6 +13,14 @@ AC_PROG_CC_STDC
 AC_CHECK_HEADERS([sys/fsuid.h])
 AC_CHECK_FUNCS([setfsuid])
 
+AC_CHECK_HEADERS_ONCE([security/pam_modules.h security/pam_aapl.h])
+AC_CHECK_LIB([pam], [pam_get_user], [:])
+AS_IF([test "x$ac_cv_header_security_pam_modules_h" = "xno" \
+       -o "x$ac_cv_lib_pam_pam_get_user" = "xno"], [
+  AC_MSG_ERROR([Unable to find the PAM library or the PAM header files])
+])
+
+
 AC_SEARCH_LIBS([dlopen], [dl])
 
 AC_CONFIG_FILES([Makefile])
