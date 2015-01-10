@@ -13,7 +13,14 @@ AC_PROG_CC_STDC
 AC_CHECK_HEADERS([sys/fsuid.h])
 AC_CHECK_FUNCS([setfsuid])
 
-AC_CHECK_HEADERS_ONCE([security/pam_modules.h security/pam_aapl.h])
+AC_CHECK_HEADERS_ONCE([security/pam_appl.h])
+# On Solaris at least, <secutiy/pam_modules.h> requires <security/pam_appl.h>
+# to be included first
+AC_CHECK_HEADER([security/pam_modules.h], [], [], \
+		[#ifdef HAVE_SECURITY_PAM_APPL_H
+		# include <security/pam_appl.h>
+		#endif
+		])
 AC_CHECK_LIB([pam], [pam_get_user], [:])
 AS_IF([test "x$ac_cv_header_security_pam_modules_h" = "xno" \
        -o "x$ac_cv_lib_pam_pam_get_user" = "xno"], [
