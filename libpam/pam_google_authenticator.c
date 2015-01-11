@@ -337,7 +337,7 @@ static int open_secret_file(pam_handle_t *pamh, const char *secret_filename,
   if (fd < 0 ||
       fstat(fd, &sb) < 0) {
     if (params->nullok != NULLERR && errno == ENOENT) {
-      // The user doesn't have a state file, but the admininistrator said
+      // The user doesn't have a state file, but the administrator said
       // that this is OK. We still return an error from open_secret_file(),
       // but we remember that this was the result of a missing state file.
       params->nullok = SECRETNOTFOUND;
