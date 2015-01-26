@@ -18,9 +18,9 @@ Options can be followed by option-specific parameters.
 Currently, the following options are recognized:
 
   DISALLOW_REUSE
-    if present, this signals the a time-based token can only ever be used
-    exactly once. Any attempt to log in using the same token will be denied.
-    This means, that users can typically not log in faster than once every
+    if present, this signals that a time-based token can be used
+    at most once. Any attempt to log in using the same token will be denied.
+    This means that users can typically not log in faster than once every
     ~30 seconds.
 
     The option is followed by a space-separated list of time stamps that
