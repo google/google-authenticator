@@ -8,6 +8,8 @@ check_LTLIBRARIES=libpam_google_authenticator_testing.la
 dist_doc_DATA = FILEFORMAT README
 dist_html_DATA = totp.html
 
+ACLOCAL_AMFLAGS = -I m4
+
 MODULES_LDFLAGS = -avoid-version -module -shared -export-dynamic
 
 demo_SOURCES=\

@@ -14,7 +14,7 @@ AC_CHECK_HEADERS([sys/fsuid.h])
 AC_CHECK_FUNCS([setfsuid])
 
 AC_CHECK_HEADERS_ONCE([security/pam_appl.h])
-# On Solaris at least, <secutiy/pam_modules.h> requires <security/pam_appl.h>
+# On Solaris at least, <security/pam_modules.h> requires <security/pam_appl.h>
 # to be included first
 AC_CHECK_HEADER([security/pam_modules.h], [], [], \
 		[#ifdef HAVE_SECURITY_PAM_APPL_H
