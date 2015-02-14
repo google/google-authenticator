@@ -51,6 +51,7 @@ hmac.c \
 hmac.h \
 sha1.c \
 sha1.h
+pam_google_authenticator_la_LIBADD = -lpam
 pam_google_authenticator_la_CFLAGS=$(AM_CFLAGS)
 pam_google_authenticator_la_LDFLAGS=$(AM_LDFLAGS) $(MODULES_LDFLAGS) -export-symbols-regex "pam_sm_(setcred|open_session|authenticate)"
 
