@@ -67,6 +67,7 @@ typedef struct Params {
   uid_t      uid;
   enum { PROMPT = 0, TRY_FIRST_PASS, USE_FIRST_PASS } pass_mode;
   int        forward_pass;
+  int        debug;
 } Params;
 
 static char oom;
@@ -122,7 +123,7 @@ static int converse(pam_handle_t *pamh, int nargs,
   return conv->conv(nargs, message, response, conv->appdata_ptr);
 }
 
-static const char *get_user_name(pam_handle_t *pamh) {
+static const char *get_user_name(pam_handle_t *pamh, const Params *params) {
   // Obtain the user's name
   const char *username;
   if (pam_get_item(pamh, PAM_USER, (void *)&username) != PAM_SUCCESS ||
@@ -130,6 +131,9 @@ static const char *get_user_name(pam_handle_t *pamh) {
     log_message(LOG_ERR, pamh,
                 "No user name available when checking verification code");
     return NULL;
+  }
+  if (params->debug) {
+    log_message(LOG_INFO, pamh, "debug: start of google_authenticator for %s", username);
   }
   return username;
 }
@@ -379,6 +383,7 @@ static int open_secret_file(pam_handle_t *pamh, const char *secret_filename,
 }
 
 static char *read_file_contents(pam_handle_t *pamh,
+                                const Params *params,
                                 const char *secret_filename, int *fd,
                                 off_t filesize) {
   // Read file contents
@@ -408,6 +413,9 @@ static char *read_file_contents(pam_handle_t *pamh,
   // Terminate the buffer with a NUL byte.
   buf[filesize] = '\000';
 
+  if(params->debug) {
+    log_message(LOG_INFO, pamh, "debug: \"%s\" read", secret_filename);
+  }
   return buf;
 }
 
@@ -415,7 +423,9 @@ static int is_totp(const char *buf) {
   return !!strstr(buf, "\" TOTP_AUTH");
 }
 
-static int write_file_contents(pam_handle_t *pamh, const char *secret_filename,
+static int write_file_contents(pam_handle_t *pamh,
+                               const Params *params,
+                               const char *secret_filename,
                                off_t old_size, time_t old_mtime,
                                const char *buf) {
   // Safely overwrite the old secret file.
@@ -462,10 +472,14 @@ static int write_file_contents(pam_handle_t *pamh, const char *secret_filename,
   free(tmp_filename);
   close(fd);
 
+  if (params->debug) {
+    log_message(LOG_INFO, pamh, "debug: \"%s\" written", secret_filename);
+  }
   return 0;
 }
 
 static uint8_t *get_shared_secret(pam_handle_t *pamh,
+                                  const Params *params,
                                   const char *secret_filename,
                                   const char *buf, int *secretLen) {
   // Decode secret key
@@ -487,6 +501,10 @@ static uint8_t *get_shared_secret(pam_handle_t *pamh,
     return NULL;
   }
   memset(secret + *secretLen, 0, base32Len + 1 - *secretLen);
+
+  if(params->debug) {
+    log_message(LOG_INFO, pamh, "debug: shared secret in \"%s\" processed", secret_filename);
+  }
   return secret;
 }
 
@@ -569,7 +587,7 @@ static int set_cfg_value(pam_handle_t *pamh, const char *key, const char *val,
     start += strspn(start, "\r\n");
     stop   = start;
   }
-  
+
   // Replace [start..stop] with the new contents.
   size_t val_len = strlen(val);
   size_t total_len = key_len + val_len + 4;
@@ -807,7 +825,9 @@ static char *request_pass(pam_handle_t *pamh, int echocode,
  * and 1, if no scratch code had been entered, and subsequent tests should be
  * applied.
  */
-static int check_scratch_codes(pam_handle_t *pamh, const char *secret_filename,
+static int check_scratch_codes(pam_handle_t *pamh,
+                               const Params *params,
+                               const char *secret_filename,
                                int *updated, char *buf, int code) {
   // Skip the first line. It contains the shared secret.
   char *ptr = buf + strcspn(buf, "\n");
@@ -854,12 +874,18 @@ static int check_scratch_codes(pam_handle_t *pamh, const char *secret_filename,
       *updated = 1;
 
       // Successfully removed scratch code. Allow user to log in.
+      if(params->debug) {
+        log_message(LOG_INFO, pamh, "debug: scratch code %d used and removed from \"%s\"", code, secret_filename);
+      }
       return 0;
     }
     ptr = endptr;
   }
 
   // No scratch code has been used. Continue checking other types of codes.
+  if(params->debug) {
+    log_message(LOG_INFO, pamh, "debug: no scratch code used from \"%s\"", code, secret_filename);
+  }
   return 1;
 }
 
@@ -1208,6 +1234,9 @@ static int check_timebased_code(pam_handle_t *pamh, const char*secret_filename,
       }
     }
     if (skew != 1000000) {
+      if(params->debug) {
+        log_message(LOG_INFO, pamh, "debug: time skew adjusted");
+      }
       return check_time_skew(pamh, secret_filename, updated, buf, skew, tm);
     }
   }
@@ -1295,6 +1324,7 @@ static int parse_user(pam_handle_t *pamh, const char *name, uid_t *uid) {
 
 static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
                       Params *params) {
+  params->debug = 0;
   params->echocode = PAM_PROMPT_ECHO_OFF;
   for (int i = 0; i < argc; ++i) {
     if (!memcmp(argv[i], "secret=", 7)) {
@@ -1307,6 +1337,8 @@ static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
       }
       params->fixed_uid = 1;
       params->uid = uid;
+    } else if (!strcmp(argv[i], "debug")) {
+      params->debug = 1;
     } else if (!strcmp(argv[i], "try_first_pass")) {
       params->pass_mode = TRY_FIRST_PASS;
     } else if (!strcmp(argv[i], "use_first_pass")) {
@@ -1354,13 +1386,13 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
 
   // Read and process status file, then ask the user for the verification code.
   int early_updated = 0, updated = 0;
-  if ((username = get_user_name(pamh)) &&
+  if ((username = get_user_name(pamh, &params)) &&
       (secret_filename = get_secret_filename(pamh, &params, username, &uid)) &&
       !drop_privileges(pamh, username, uid, &old_uid, &old_gid) &&
       (fd = open_secret_file(pamh, secret_filename, &params, username, uid,
                              &filesize, &mtime)) >= 0 &&
-      (buf = read_file_contents(pamh, secret_filename, &fd, filesize)) &&
-      (secret = get_shared_secret(pamh, secret_filename, buf, &secretLen)) &&
+      (buf = read_file_contents(pamh, &params, secret_filename, &fd, filesize)) &&
+      (secret = get_shared_secret(pamh, &params, secret_filename, buf, &secretLen)) &&
        rate_limit(pamh, secret_filename, &early_updated, &buf) >= 0) {
     long hotp_counter = get_hotp_counter(pamh, buf);
     int must_advance_counter = 0;
@@ -1456,7 +1488,7 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
       }
 
       // Check all possible types of verification codes.
-      switch (check_scratch_codes(pamh, secret_filename, &updated, buf, code)){
+      switch (check_scratch_codes(pamh, &params, secret_filename, &updated, buf, code)){
       case 1:
         if (hotp_counter > 0) {
           switch (check_counterbased_code(pamh, secret_filename, &updated,
@@ -1539,7 +1571,7 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
 
   // Persist the new state.
   if (early_updated || updated) {
-    if (write_file_contents(pamh, secret_filename, filesize,
+    if (write_file_contents(pamh, &params, secret_filename, filesize,
                             mtime, buf) < 0) {
       // Could not persist new state. Deny access.
       rc = PAM_SESSION_ERR;
