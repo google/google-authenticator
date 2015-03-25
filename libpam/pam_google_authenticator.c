@@ -884,7 +884,7 @@ static int check_scratch_codes(pam_handle_t *pamh,
 
   // No scratch code has been used. Continue checking other types of codes.
   if(params->debug) {
-    log_message(LOG_INFO, pamh, "debug: no scratch code used from \"%s\"", code, secret_filename);
+    log_message(LOG_INFO, pamh, "debug: no scratch code used from \"%s\"", secret_filename);
   }
   return 1;
 }
