@@ -364,6 +364,28 @@ int main(int argc, char *argv[]) {
     assert(pam_sm_open_session(NULL, 0, targc, targv) == PAM_SUCCESS);
     verify_prompts_shown(expected_good_prompts_shown);
   
+    // Test the STEP_SIZE option
+    puts("Testing STEP_SIZE option");
+    assert(!chmod(fn, 0600));
+    assert((fd = open(fn, O_APPEND | O_WRONLY)) >= 0);
+    assert(write(fd, "\n\" STEP_SIZE 60\n", 16) == 16);
+    close(fd);
+    for (int *tm  = (int []){ 9998, 9999, 10001, 10002, 10000, -1 },
+             *res = (int []){ PAM_SESSION_ERR, PAM_SUCCESS, PAM_SUCCESS,
+                              PAM_SESSION_ERR, PAM_SUCCESS };
+         *tm >= 0;) {
+      set_time(*tm++ * 60);
+      assert(pam_sm_open_session(NULL, 0, targc, targv) == *res++);
+      verify_prompts_shown(expected_good_prompts_shown);
+    }
+  
+    // Reset secret file after step size testing.
+    assert(!chmod(fn, 0600));
+    assert((fd = open(fn, O_TRUNC | O_WRONLY)) >= 0);
+    assert(write(fd, secret, sizeof(secret)-1) == sizeof(secret)-1);
+    assert(write(fd, "\n\" TOTP_AUTH", 12) == 12);
+    close(fd);
+  
     // Test the WINDOW_SIZE option
     puts("Testing WINDOW_SIZE option");
     for (int *tm  = (int []){ 9998, 9999, 10001, 10002, 10000, -1 },
