@@ -461,16 +461,23 @@ static int write_file_contents(pam_handle_t *pamh,
   }
 
   // Write the new file contents
-  if (write(fd, buf, strlen(buf)) != (ssize_t)strlen(buf) ||
-      rename(tmp_filename, secret_filename) != 0) {
+  if (write(fd, buf, strlen(buf)) != (ssize_t)strlen(buf)) {
+    close(fd);
     unlink(tmp_filename);
     free(tmp_filename);
-    close(fd);
     goto removal_failure;
   }
-
+  if (close(fd)) {
+    unlink(tmp_filename);
+    free(tmp_filename);
+    goto removal_failure;
+  }
+  if (rename(tmp_filename, secret_filename) != 0) {
+    unlink(tmp_filename);
+    free(tmp_filename);
+    goto removal_failure;
+  }
   free(tmp_filename);
-  close(fd);
 
   if (params->debug) {
     log_message(LOG_INFO, pamh, "debug: \"%s\" written", secret_filename);
