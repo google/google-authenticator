@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/google/google-authenticator.svg?branch=master)](https://travis-ci.org/google/google-authenticator)
+
 The Google Authenticator project includes implementations of one-time passcode
 generators for several mobile platforms, as well as a pluggable authentication
 module (PAM). One-time passcodes are generated using open standards developed by
