@@ -380,6 +380,7 @@ static void usage(void) {
  " -R, --rate-time=M        Limit logins to N per every M seconds\n"
  " -u, --no-rate-limit      Disable rate-limiting\n"
  " -s, --secret=<file>      Specify a non-standard file location\n"
+ " -S, --step-size=S        Set interval between token refreshes\n"
  " -w, --window-size=W      Set window of concurrently valid codes\n"
  " -W, --minimal-window     Disable window of concurrently valid codes");
 }
@@ -389,12 +390,14 @@ int main(int argc, char *argv[]) {
   static const char hotp[]      = "\" HOTP_COUNTER 1\n";
   static const char totp[]      = "\" TOTP_AUTH\n";
   static const char disallow[]  = "\" DISALLOW_REUSE\n";
+  static const char step[]      = "\" STEP_SIZE 30\n";
   static const char window[]    = "\" WINDOW_SIZE 17\n";
   static const char ratelimit[] = "\" RATE_LIMIT 3 30\n";
   char secret[(SECRET_BITS + BITS_PER_BASE32_CHAR-1)/BITS_PER_BASE32_CHAR +
               1 /* newline */ +
               sizeof(hotp) +  // hotp and totp are mutually exclusive.
               sizeof(disallow) +
+              sizeof(step) +
               sizeof(window) +
               sizeof(ratelimit) + 5 + // NN MMM (total of five digits)
               SCRATCHCODE_LENGTH*(SCRATCHCODES + 1 /* newline */) +
@@ -407,10 +410,11 @@ int main(int argc, char *argv[]) {
   char *secret_fn = NULL;
   char *label = NULL;
   char *issuer = NULL;
+  int step_size = 0;
   int window_size = 0;
   int idx;
   for (;;) {
-    static const char optstring[] = "+hctdDfl:i:qQ:r:R:us:w:W";
+    static const char optstring[] = "+hctdDfl:i:qQ:r:R:us:S:w:W";
     static struct option options[] = {
       { "help",             0, 0, 'h' },
       { "counter-based",    0, 0, 'c' },
@@ -426,6 +430,7 @@ int main(int argc, char *argv[]) {
       { "rate-time",        1, 0, 'R' },
       { "no-rate-limit",    0, 0, 'u' },
       { "secret",           1, 0, 's' },
+      { "step-size",        1, 0, 'S' },
       { "window-size",      1, 0, 'w' },
       { "minimal-window",   0, 0, 'W' },
       { 0,                  0, 0,  0  }
@@ -596,6 +601,20 @@ int main(int argc, char *argv[]) {
         _exit(1);
       }
     } else if (!idx--) {
+      // step-size
+      if (step_size) {
+        fprintf(stderr, "Duplicate -S option detected\n");
+        _exit(1);
+      }
+      char *endptr;
+      errno = 0;
+      long l = strtol(optarg, &endptr, 10);
+      if (errno || endptr == optarg || *endptr || l < 1 || l > 60) {
+        fprintf(stderr, "-S requires an argument in the range 1..60\n");
+        _exit(1);
+      }
+      step_size = (int)l;
+    } else if (!idx--) {
       // window-size
       if (window_size) {
         fprintf(stderr, "Duplicate -w/-W option detected\n");
@@ -753,6 +772,11 @@ int main(int argc, char *argv[]) {
                      secret, sizeof(secret), disallow);
     } else if (reuse == DISALLOW_REUSE) {
       addOption(secret, sizeof(secret), disallow);
+    }
+    if (step_size) {
+      char buf[80];
+      sprintf(buf, "\" STEP_SIZE %d\n", step_size);
+      addOption(secret, sizeof(secret), buf);
     }
     if (!window_size) {
       maybeAddOption("By default, tokens are good for 30 seconds and in order "

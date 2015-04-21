@@ -531,10 +531,6 @@ static time_t get_time(void) {
 }
 #endif
 
-static int get_timestamp(void) {
-  return get_time()/30;
-}
-
 static int comparator(const void *a, const void *b) {
   return *(unsigned int *)a - *(unsigned int *)b;
 }
@@ -650,6 +646,42 @@ static int set_cfg_value(pam_handle_t *pamh, const char *key, const char *val,
   }
 
   return 0;
+}
+
+static int step_size(pam_handle_t *pamh, const char *secret_filename,
+                     const char *buf) {
+  const char *value = get_cfg_value(pamh, "STEP_SIZE", buf);
+  if (!value) {
+    // Default step size is 30.
+    return 30;
+  } else if (value == &oom) {
+    // Out of memory. This is a fatal error.
+    return 0;
+  }
+
+  char *endptr;
+  errno = 0;
+  int step = (int)strtoul(value, &endptr, 10);
+  if (errno || !*value || value == endptr ||
+      (*endptr && *endptr != ' ' && *endptr != '\t' &&
+       *endptr != '\n' && *endptr != '\r') ||
+      step < 1 || step > 60) {
+    free((void *)value);
+    log_message(LOG_ERR, pamh, "Invalid STEP_SIZE option in \"%s\"",
+                secret_filename);
+    return 0;
+  }
+  free((void *)value);
+  return step;
+}
+
+static int get_timestamp(pam_handle_t *pamh, const char *secret_filename,
+                         const char **buf) {
+  int step = step_size(pamh, secret_filename, *buf);
+  if (!step) {
+    return 0;
+  }
+  return get_time()/step;
 }
 
 static long get_hotp_counter(pam_handle_t *pamh, const char *buf) {
@@ -900,9 +932,8 @@ static int window_size(pam_handle_t *pamh, const char *secret_filename,
                        const char *buf) {
   const char *value = get_cfg_value(pamh, "WINDOW_SIZE", buf);
   if (!value) {
-    // Default window size is 3. This gives us one 30s window before and
-    // after the current one.
-    free((void *)value);
+    // Default window size is 3. This gives us one STEP_SIZE second
+    // window before and after the current one.
     return 3;
   } else if (value == &oom) {
     // Out of memory. This is a fatal error.
@@ -978,11 +1009,15 @@ static int invalidate_timebased_code(int tm, pam_handle_t *pamh,
     if (tm == blocked) {
       // The code is currently blocked from use. Disallow login.
       free((void *)disallow);
+      int step = step_size(pamh, secret_filename, *buf);
+      if (!step) {
+        return -1;
+      }
       log_message(LOG_ERR, pamh,
                   "Trying to reuse a previously used time-based code. "
-                  "Retry again in 30 seconds. "
+                  "Retry again in %d seconds. "
                   "Warning! This might mean, you are currently subject to a "
-                  "man-in-the-middle attack.");
+                  "man-in-the-middle attack.", step);
       return -1;
     }
 
@@ -1198,7 +1233,10 @@ static int check_timebased_code(pam_handle_t *pamh, const char*secret_filename,
   }
 
   // Compute verification codes and compare them with user input
-  const int tm = get_timestamp();
+  const int tm = get_timestamp(pamh, secret_filename, buf);
+  if (!tm) {
+    return -1;
+  }
   const char *skew_str = get_cfg_value(pamh, "TIME_SKEW", *buf);
   if (skew_str == &oom) {
     // Out of memory. This is a fatal error
