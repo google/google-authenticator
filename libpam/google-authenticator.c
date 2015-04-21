@@ -69,7 +69,7 @@ static int generateCode(const char *key, unsigned long tm) {
     return -1;
   }
 
-  // Compute the HMAC_SHA1 of the secrete and the challenge.
+  // Compute the HMAC_SHA1 of the secret and the challenge.
   uint8_t hash[SHA1_DIGEST_LENGTH];
   hmac_sha1(secret, secretLen, challenge, 8, hash, SHA1_DIGEST_LENGTH);
 
