@@ -139,7 +139,7 @@ static void cont(int signo) {
 }
 
 int main(int argc, char *argv[]) {
-  extern int pam_sm_open_session(pam_handle_t *, int, int, const char **);
+  extern int pam_sm_authenticate(pam_handle_t *, int, int, const char **);
 
   // Try to redirect stdio to /dev/tty
   int fd = open("/dev/tty", O_RDWR);
@@ -165,7 +165,7 @@ int main(int argc, char *argv[]) {
   assert(!signal(SIGCONT, cont));
 
   // Attempt login
-  if (pam_sm_open_session(NULL, 0, argc-1, (const char **)argv+1)
+  if (pam_sm_authenticate(NULL, 0, argc-1, (const char **)argv+1)
       != PAM_SUCCESS) {
     fprintf(stderr, "Login failed\n");
     abort();
