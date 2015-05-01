@@ -6,6 +6,8 @@ module (PAM). One-time passcodes are generated using open standards developed by
 the [Initiative for Open Authentication (OATH)](http://www.openauthentication.org/)
 (which is unrelated to [OAuth](http://oauth.net/ OAuth)). 
 
+The Android app is in [a separate project](https://github.com/google/google-authenticator-android).
+
 These implementations support the HMAC-Based One-time Password (HOTP) algorithm
 specified in [RFC 4226](https://tools.ietf.org/html/rfc4226) and the Time-based
 One-time Password (TOTP) algorithm specified in [RFC 6238](https://tools.ietf.org/html/rfc6238).
