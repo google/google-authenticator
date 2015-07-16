@@ -431,7 +431,8 @@ static NSString *const TOTPAuthURLTimerNotification
     [nc postNotificationName:OTPAuthURLDidGenerateNewOTPNotification object:self];
     self.lastProgress = period;
     self.warningSent = NO;
-  } else if (progress > period - self.generationAdvanceWarning
+  }
+ if (progress > period - self.generationAdvanceWarning
              && !self.warningSent) {
     NSNumber *warning = [NSNumber numberWithInt:ceil(period - progress)];
     NSDictionary *userInfo
