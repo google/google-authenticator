@@ -28,6 +28,22 @@ AS_IF([test "x$ac_cv_header_security_pam_modules_h" = "xno" \
   AC_MSG_ERROR([Unable to find the PAM library or the PAM header files])
 ])
 
+AC_MSG_CHECKING([whether certain PAM functions require const arguments])
+AC_LANG_PUSH(C)
+# Force test to bail if const isn't needed
+AC_LANG_WERROR
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+	#include <security/pam_appl.h>
+]],[[
+	const void **item;
+	(void) pam_get_item(NULL, 0, item);
+]])],[AC_DEFINE([PAM_CONST], [const], \
+		[Define if certain PAM functions require const arguments])
+      AC_MSG_RESULT([yes])],
+     [AC_DEFINE([PAM_CONST], [], \
+		[Prevent certain PAM functions from using const arguments])
+      AC_MSG_RESULT([no])])
+AC_LANG_POP(C)
 
 AC_SEARCH_LIBS([dlopen], [dl])
 
