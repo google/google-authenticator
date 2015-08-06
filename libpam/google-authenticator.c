@@ -16,6 +16,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "config.h"
+
 #define _GNU_SOURCE
 
 #include <assert.h>
