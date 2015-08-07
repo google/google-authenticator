@@ -34,9 +34,16 @@ AC_LANG_PUSH(C)
 AC_LANG_WERROR
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 	#include <security/pam_appl.h>
+	#include <security/pam_modules.h>
 ]],[[
 	const void **item;
-	(void) pam_get_item(NULL, 0, item);
+	int dummy = 0;
+	/*
+	 * since pam_handle_t is opaque on at least some platforms, give it
+	 * a non-NULL dummy value
+	 */
+	 const pam_handle_t *ph = (const pam_handle_t *)&dummy;
+	(void) pam_get_item(ph, 0, item);
 ]])],[AC_DEFINE([PAM_CONST], [const], \
 		[Define if certain PAM functions require const arguments])
       AC_MSG_RESULT([yes])],
