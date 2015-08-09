@@ -207,6 +207,9 @@ static void displayQRCode(const char *secret, const char *label,
     if (!qrencode) {
       qrencode = dlopen("libqrencode.so.3", RTLD_NOW | RTLD_LOCAL);
     }
+    if (!qrencode) {
+      qrencode = dlopen("libqrencode.dylib.3", RTLD_NOW | RTLD_LOCAL);
+    }
     if (qrencode) {
       typedef struct {
         int version;
