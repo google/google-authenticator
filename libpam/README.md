@@ -52,25 +52,10 @@ given to `google-authenticator`, after having entered your normal user id and
 your normal UNIX account password.
 
 During the initial roll-out process, you might find that not all users have
-created a secret key, yet. If you would still like them to be able to log
+created a secret key yet. If you would still like them to be able to log
 in, you can pass the "nullok" option on the module's command line:
 
 `  auth required pam_google_authenticator.so nullok`
-
-## Troubleshooting
-
-If you discover that your TOTP code never works, this is most commonly the
-result of the clock on your server being different from the one on your Android
-device. The PAM module makes an attempt to compensate for time skew. You can
-teach it about the amount of skew that you are experiencing, by trying to log
-it three times in a row. Make sure you always wait 30s (but not longer), so
-that you get three distinct TOTP codes.
-
-Some administrators prefer that time skew isn't adjusted automatically, as
-doing so results in a slightly less secure system configuration. If you want
-to disable it, you can do so on the module command line:
-
-`  auth required pam_google_authenticator.so noskewadj`
 
 ## Encrypted home directories
 
@@ -96,12 +81,17 @@ must not include "~" or "${HOME}" in the filename.
 The `user=` option can also be useful if you want to authenticate users who do
 not have traditional UNIX accounts on your system.
 
-## Other options
+## Module options
 
-By default, the PAM module does not echo the verification code when it is
-entered by the user. In some situations, the administrator might prefer a
-different behavior. Pass the `echo_verification_code` option to the module
-in order to enable echoing.
+### secret=/path/to/secret/file / user=some-user
+
+See "encrypted home directories", above.
+
+### debug
+
+Enable more verbose log messages in syslog.
+
+### try_first_pass / use_first_pass / forward_pass
 
 Some PAM clients cannot prompt the user for more than just the password. To
 work around this problem, this PAM module supports stacking. If you pass the
@@ -113,6 +103,37 @@ to be configured with the `use_first_pass` option.
 In turn, `pam_google_authenticator` module also supports both the standard
 `use_first_pass` and `try_first_pass` options. But most users would not need
 to set those on the `pam_google_authenticator`.
+
+### noskewadj
+
+If you discover that your TOTP code never works, this is most commonly the
+result of the clock on your server being different from the one on your Android
+device. The PAM module makes an attempt to compensate for time skew. You can
+teach it about the amount of skew that you are experiencing, by trying to log
+it three times in a row. Make sure you always wait 30s (but not longer), so
+that you get three distinct TOTP codes.
+
+Some administrators prefer that time skew isn't adjusted automatically, as
+doing so results in a slightly less secure system configuration. If you want
+to disable it, you can do so on the module command line:
+
+`  auth required pam_google_authenticator.so noskewadj`
+
+### no_increment_hotp
+
+Don't increment the counter for failed HOTP attempts. This is important if log
+attempts with failed passwords still get an OTP prompt.
+
+### nullok
+
+Allow users to log in without OTP, if they haven't set up OTP yet.
+
+### echo_verification_code
+
+By default, the PAM module does not echo the verification code when it is
+entered by the user. In some situations, the administrator might prefer a
+different behavior. Pass the `echo_verification_code` option to the module
+in order to enable echoing.
 
 If you would like verification codes that are counter based instead of
 timebased, use the `google-authenticator` binary to generate a secret key in
