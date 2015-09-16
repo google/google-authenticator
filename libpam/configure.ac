@@ -36,7 +36,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 	#include <security/pam_appl.h>
 	#include <security/pam_modules.h>
 ]],[[
-	const void **item;
+	const void **item = 0;
 	int dummy = 0;
 	/*
 	 * since pam_handle_t is opaque on at least some platforms, give it
