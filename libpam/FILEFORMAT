@@ -6,7 +6,9 @@ The file size is currently limited to 1kB. This should be generous even
 when using a very large list of scratch codes.
 
 The first line is the base32 encoded secret. It uses characters in the range
-A..Z2..7.
+A..Z2..7.  The secret is used after first trying any one-time scratch codes.
+HOTP mode is used only if HOTP_COUNTER is present.
+TOTP mode is used only if TOTP_AUTH is present *and* HOTP_COUNTER is not present.
 
 The following lines are optional. They all start with a double quote character,
 followed by a space character. Followed by an option name. Option names are
@@ -37,6 +39,10 @@ Currently, the following options are recognized:
     the presence of this option indicates that the secret can be used to
     authenticate users with a time-based token.
 
+  STEP_SIZE
+    the number of seconds in each time step during which a TOTP code is valid.
+    The default is that a code is valid for 30 seconds.
+
   HOTP_COUNTER n
     the presence of this option indicates that the secret can be used to
     authenticate users with a counter-based token.  The argument "n"
@@ -56,7 +62,7 @@ Currently, the following options are recognized:
 
 
 Any all-numeric sequence of eight-digit numbers are randomly generated
-one-time tokens. The user can enter any arbitrary one-time code
+one-time scratch code tokens. The user can enter any arbitrary one-time code
 to log into his account. The code will then be removed from the file.
 
 
