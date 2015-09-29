@@ -140,3 +140,11 @@ timebased, use the `google-authenticator` binary to generate a secret key in
 your home directory with the proper option.  In this mode, clock skew is
 irrelevant and the window size option now applies to how many codes beyond the
 current one that would be accepted, to reduce synchronization problems.
+
+### otp_length
+
+Many tokens can be configured to use longer HOTP/TOTP codes, up to 9 digits.
+Valid values are in the range 6-9.  The default if not specified is 6.
+Setting this option will change the code length for all users.
+It is not currently possible to set this on a user-by-user basis.
+

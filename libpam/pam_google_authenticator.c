@@ -54,6 +54,7 @@
 
 #define MODULE_NAME "pam_google_authenticator"
 #define SECRET      "~/.google_authenticator"
+#define NINE_DIGIT_LIMIT (1000 * 1000 * 1000)
 
 typedef struct Params {
   const char *secret_filename_spec;
@@ -66,6 +67,7 @@ typedef struct Params {
   enum { PROMPT = 0, TRY_FIRST_PASS, USE_FIRST_PASS } pass_mode;
   int        forward_pass;
   int        debug;
+  int        otp_length;
 } Params;
 
 static char oom;
@@ -414,6 +416,29 @@ static char *read_file_contents(pam_handle_t *pamh,
 
 static int is_totp(const char *buf) {
   return !!strstr(buf, "\" TOTP_AUTH");
+}
+
+static int is_valid_scratch_code(const char *pw, int pw_len)
+{
+  // scratch codes are eight digits starting with '1'..'9'
+  int scratch_length = 8;
+  if (pw_len < scratch_length ||
+      pw[pw_len - scratch_length] > '9' ||
+      pw[pw_len - scratch_length] < '1') {
+    return 0;
+  }
+  return 1;
+}
+
+static int is_valid_Xotp_code(const char *pw, int pw_len, int otp_length)
+{
+  // Verification codes are six-nine digits starting with '0'..'9'
+  if (pw_len < otp_length ||
+      pw[pw_len - otp_length] > '9' ||
+      pw[pw_len - otp_length] < '0') {
+    return 0;
+  }
+  return 1;
 }
 
 static int write_file_contents(pam_handle_t *pamh,
@@ -861,8 +886,8 @@ static char *request_pass(pam_handle_t *pamh, int echocode,
   return ret;
 }
 
-/* Checks for possible use of scratch codes. Returns -1 on error, 0 on success,
- * and 1, if no scratch code had been entered, and subsequent tests should be
+/* Checks for possible use of scratch codes. Returns 0 on success,
+ * or 1 if no scratch code had been entered, and subsequent tests should be
  * applied.
  */
 static int check_scratch_codes(pam_handle_t *pamh,
@@ -1060,12 +1085,14 @@ static int invalidate_timebased_code(int tm, pam_handle_t *pamh,
  * expected authentication token.
  */
 #ifdef TESTING
-int compute_code(const uint8_t *secret, int secretLen, unsigned long value)
+uint32_t compute_code(const uint8_t *secret, int secretLen, unsigned long value,
+                 int otp_length)
   __attribute__((visibility("default")));
 #else
 static
 #endif
-int compute_code(const uint8_t *secret, int secretLen, unsigned long value) {
+uint32_t compute_code(const uint8_t *secret, int secretLen, unsigned long value,
+                 int otp_length) {
   uint8_t val[8];
   for (int i = 8; i--; value >>= 8) {
     val[i] = value;
@@ -1074,14 +1101,30 @@ int compute_code(const uint8_t *secret, int secretLen, unsigned long value) {
   hmac_sha1(secret, secretLen, val, 8, hash, SHA1_DIGEST_LENGTH);
   memset(val, 0, sizeof(val));
   int offset = hash[SHA1_DIGEST_LENGTH - 1] & 0xF;
-  unsigned int truncatedHash = 0;
+  uint32_t truncatedHash = 0;
   for (int i = 0; i < 4; ++i) {
     truncatedHash <<= 8;
     truncatedHash  |= hash[offset + i];
   }
   memset(hash, 0, sizeof(hash));
-  truncatedHash &= 0x7FFFFFFF;
-  truncatedHash %= 1000000;
+  truncatedHash &= 0x7FFFFFFF; // 31-bits specified by RFC-4226
+  int mod_factor;
+  switch (otp_length) {
+  default: // default to 6 digits
+  case 6:
+    mod_factor = 1000 * 1000;
+    break;
+  case 7:
+    mod_factor = 10 * 1000 * 1000;
+    break;
+  case 8:
+    mod_factor = 100 * 1000 * 1000;
+    break;
+  case 9:
+    mod_factor = 1000 * 1000 * 1000;
+    break;
+  }
+  truncatedHash %= mod_factor;
   return truncatedHash;
 }
 
@@ -1228,8 +1271,10 @@ static int check_timebased_code(pam_handle_t *pamh, const char*secret_filename,
     return 1;
   }
 
-  if (code < 0 || code >= 1000000) {
-    // All time based verification codes are no longer than six digits.
+  if (code < 0 || code >= NINE_DIGIT_LIMIT) {
+    // All counter based verification codes are no longer than nine digits
+    // because RFC-4226 (referenced from RFC-6238) explicitly truncates the
+    // hash to 31-bits
     return 1;
   }
 
@@ -1255,7 +1300,7 @@ static int check_timebased_code(pam_handle_t *pamh, const char*secret_filename,
     return -1;
   }
   for (int i = -((window-1)/2); i <= window/2; ++i) {
-    unsigned int hash = compute_code(secret, secretLen, tm + skew + i);
+    uint32_t hash = compute_code(secret, secretLen, tm + skew + i, params->otp_length);
     if (hash == (unsigned int)code) {
       return invalidate_timebased_code(tm + skew + i, pamh, secret_filename,
                                        updated, buf);
@@ -1268,13 +1313,13 @@ static int check_timebased_code(pam_handle_t *pamh, const char*secret_filename,
     // use.
     skew = 1000000;
     for (int i = 0; i < 25*60; ++i) {
-      unsigned int hash = compute_code(secret, secretLen, tm - i);
+      uint32_t hash = compute_code(secret, secretLen, tm - i, params->otp_length);
       if (hash == (unsigned int)code && skew == 1000000) {
         // Don't short-circuit out of the loop as the obvious difference in
         // computation time could be a signal that is valuable to an attacker.
         skew = -i;
       }
-      hash = compute_code(secret, secretLen, tm + i);
+      hash = compute_code(secret, secretLen, tm + i, params->otp_length);
       if (hash == (unsigned int)code && skew == 1000000) {
         skew = i;
       }
@@ -1307,8 +1352,9 @@ static int check_counterbased_code(pam_handle_t *pamh,
     return 1;
   }
 
-  if (code < 0 || code >= 1000000) {
-    // All counter based verification codes are no longer than six digits.
+  if (code < 0 || code >= NINE_DIGIT_LIMIT) {
+    // All counter based verification codes are no longer than nine digits.
+    // because RFC-4226 explicitly truncates the hash to 31-bits
     return 1;
   }
 
@@ -1319,7 +1365,12 @@ static int check_counterbased_code(pam_handle_t *pamh,
     return -1;
   }
   for (int i = 0; i < window; ++i) {
-    unsigned int hash = compute_code(secret, secretLen, hotp_counter + i);
+    uint32_t hash = compute_code(secret, secretLen, hotp_counter + i, params->otp_length);
+#ifdef TESTING
+    if (params->debug) {
+      log_message(LOG_ERR, pamh, "compute_code: %d vs input %d\n", hash, (unsigned int)code);
+    }
+#endif
     if (hash == (unsigned int)code) {
       char counter_str[40];
       sprintf(counter_str, "%ld", hotp_counter + i + 1);
@@ -1383,6 +1434,19 @@ static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
       }
       params->fixed_uid = 1;
       params->uid = uid;
+    } else if (!memcmp(argv[i], "otp_length=", 11)) {
+      char *endptr;
+      errno = 0;
+      long l = strtol(argv[i] + 11, &endptr, 10);
+      if (errno || l < 0 || *endptr) {
+        log_message(LOG_ERR, pamh, "Invalid otp_length option \"%s\"", argv[i]);
+        return -1;
+      }
+      if (l < 6 || l > 9) {
+        log_message(LOG_ERR, pamh, "Out of range otp_length option %ld", l);
+        return -1;
+      }
+      params->otp_length = (int)l;
     } else if (!strcmp(argv[i], "debug")) {
       params->debug = 1;
     } else if (!strcmp(argv[i], "try_first_pass")) {
@@ -1425,6 +1489,7 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
 
   // Handle optional arguments that configure our PAM module
   Params params = { 0 };
+  params.otp_length = -1;
   if (parse_args(pamh, argc, argv, &params) < 0) {
     return rc;
   }
@@ -1501,13 +1566,18 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
       // We are often dealing with a combined password and verification
       // code. Separate them now.
       int pw_len = strlen(pw);
-      int expected_len = mode & 1 ? 8 : 6;
-      char ch;
+      int otp_len = (params.otp_length == -1 ? 6 : params.otp_length);
+      int expected_len = (mode & 1) ? 8 : otp_len;
+
+      // XXX it should be possible to specify otp_length on a per-user basis,
+      //   but that requires significant restructuring to this code.
       if (pw_len < expected_len ||
-          // Verification are six digits starting with '0'..'9',
-          // scratch codes are eight digits starting with '1'..'9'
-          (ch = pw[pw_len - expected_len]) > '9' ||
-          ch < (expected_len == 8 ? '1' : '0')) {
+          ((mode & 1) && !is_valid_scratch_code(pw, pw_len)) ||
+          (!(mode & 1) && !is_valid_Xotp_code(pw, pw_len, otp_len))
+         ) {
+        if (params.debug) {
+          log_message(LOG_INFO, pamh, "Invalid code format (%d character code)\n", strlen(pw));
+        }
       invalid:
         memset(pw, 0, pw_len);
         free(pw);

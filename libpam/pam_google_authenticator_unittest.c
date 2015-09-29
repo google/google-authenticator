@@ -213,8 +213,8 @@ int main(int argc, char *argv[]) {
   void (*set_time)(time_t t) =
       (void (*)(time_t))dlsym(pam_module, "set_time");
   assert(set_time);
-  int (*compute_code)(uint8_t *, int, unsigned long) =
-      (int (*)(uint8_t*, int, unsigned long))dlsym(pam_module, "compute_code");
+  uint32_t (*compute_code)(const uint8_t *, int, unsigned long, int) =
+      (uint32_t (*)(const uint8_t*, int, unsigned long, int))dlsym(pam_module, "compute_code");
   assert(compute_code);
 
   for (int otp_mode = 0; otp_mode < 8; ++otp_mode) {
@@ -424,7 +424,7 @@ int main(int argc, char *argv[]) {
       char buf[7];
       response = buf;
       sprintf(response, "%06d", compute_code(binary_secret,
-                                             binary_secret_len, i));
+                                             binary_secret_len, i, 6));
       assert(pam_sm_authenticate(NULL, 0, targc, targv) == PAM_SUCCESS);
       verify_prompts_shown(expected_good_prompts_shown);
     }
@@ -453,7 +453,7 @@ int main(int argc, char *argv[]) {
       char buf[7];
       response = buf;
       sprintf(response, "%06d",
-              compute_code(binary_secret, binary_secret_len, *tm++));
+              compute_code(binary_secret, binary_secret_len, *tm++, 6));
       assert(pam_sm_authenticate(NULL, 0, targc, targv) == *res);
       verify_prompts_shown(
           *res != PAM_SUCCESS ? 0 : expected_good_prompts_shown);
@@ -496,7 +496,7 @@ int main(int argc, char *argv[]) {
       char buf[7];
       response = buf;
       sprintf(response, "%06d",
-              compute_code(binary_secret, binary_secret_len, 11000 + i));
+              compute_code(binary_secret, binary_secret_len, 11000 + i, 6));
       assert(pam_sm_authenticate(NULL, 0, targc, targv) ==
              (i >= 2 ? PAM_SUCCESS : PAM_AUTH_ERR));
       verify_prompts_shown(expected_good_prompts_shown);
@@ -505,7 +505,7 @@ int main(int argc, char *argv[]) {
     char buf[7];
     response = buf;
     sprintf(response, "%06d", compute_code(binary_secret,
-                                           binary_secret_len, 11010));
+                                           binary_secret_len, 11010, 6));
     assert(pam_sm_authenticate(NULL, 0, 1,
                                (const char *[]){ "noskewadj", 0 }) ==
            PAM_AUTH_ERR);
