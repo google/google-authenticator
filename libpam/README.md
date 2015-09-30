@@ -159,3 +159,9 @@ the impact of knowing the few bits of state from the counter are likely to be
 minimal.  Of more concern may be that an attacker will be able to detect when
 the real user logs in.
 
+### default_window_size / default_rwindow_size
+
+Default values for the WINDOW_SIZE and RWINDOW_SIZE options.  This may be
+overridden by corresponding values in individual user's .google_authenticator
+files.
+

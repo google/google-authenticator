@@ -76,6 +76,8 @@ typedef struct Params {
   int        debug;
   int        otp_length;
   int        show_counter_in_prompt;
+  int        default_rwindow_size;
+  int        default_window_size;
 } Params;
 
 // Information about, and contained in, the ~/.google_authenticator file
@@ -1019,11 +1021,10 @@ static int check_scratch_codes(pam_handle_t *pamh,
   return 1;
 }
 
-static int window_size(pam_handle_t *pamh, const SecretFile *secfile) {
+static int window_size(pam_handle_t *pamh, const Params *params,
+                       const SecretFile *secfile) {
   long window;
-  // Default window size is 3. This gives us one STEP_SIZE second
-  // window before and after the current one.
-  const long default_value = 3L;
+  const long default_value = params->default_window_size;
   if (get_cfg_value_long(pamh, secfile, "WINDOW_SIZE",
                          default_value, &window) < 0) {
     return 0;
@@ -1036,9 +1037,10 @@ static int window_size(pam_handle_t *pamh, const SecretFile *secfile) {
   return (int)window;
 }
 
-static int rwindow_size(pam_handle_t *pamh, const SecretFile *secfile) {
+static int rwindow_size(pam_handle_t *pamh, const Params *params,
+                        const SecretFile *secfile) {
   long window;
-  const long default_value = 0L;  // No resync window by default.
+  const long default_value = params->default_rwindow_size;
   if (get_cfg_value_long(pamh, secfile, "RWINDOW_SIZE",
                          default_value, &window) < 0) {
     return 0;
@@ -1057,6 +1059,7 @@ static int rwindow_size(pam_handle_t *pamh, const SecretFile *secfile) {
  * Returns -1 on error, and 0 on success.
  */
 static int invalidate_timebased_code(int tm, pam_handle_t *pamh,
+                                     const Params *params,
                                      SecretFile *secfile) {
   char *disallow = get_cfg_value(pamh, secfile, "DISALLOW_REUSE");
   if (!disallow) {
@@ -1069,7 +1072,7 @@ static int invalidate_timebased_code(int tm, pam_handle_t *pamh,
   }
 
   // Allow the user to customize the window size parameter.
-  int window = window_size(pamh, secfile);
+  int window = window_size(pamh, params, secfile);
   if (!window) {
     // The user configured a non-standard window size, but there was some
     // error with the value of this parameter.
@@ -1358,14 +1361,14 @@ static int check_timebased_code(pam_handle_t *pamh, Params *params,
   }
   free((void *)skew_str);
 
-  int window = window_size(pamh, secfile);
+  int window = window_size(pamh, params, secfile);
   if (!window) {
     return -1;
   }
   for (int i = -((window-1)/2); i <= window/2; ++i) {
     uint32_t hash = compute_code(secret, secretLen, tm + skew + i, params->otp_length);
     if (hash == (unsigned int)code) {
-      return invalidate_timebased_code(tm + skew + i, pamh, secfile);
+      return invalidate_timebased_code(tm + skew + i, pamh, params, secfile);
     }
   }
 
@@ -1422,13 +1425,13 @@ static int check_counterbased_code(pam_handle_t *pamh, Params *params,
 
   // Compute [window_size] verification codes and compare them with user input.
   // Future codes are allowed in case the user computed but did not use a code.
-  int window = window_size(pamh, secfile);
+  int window = window_size(pamh, params, secfile);
   if (!window) {
     return -1;
   }
 
   // Note: rwindow is not a required option, 0 means don't allow resync
-  int rwindow = rwindow_size(pamh, secfile);
+  int rwindow = rwindow_size(pamh, params, secfile);
 
   long valid_code_counter = 0;
   int update_counter = 0;
@@ -1593,6 +1596,16 @@ static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
                     params->otp_length);
         return -1;
       }
+    } else if ((rc = parse_int_arg(pamh, argv[i], &params->default_window_size,
+                                   "default_window_size"))) {
+      if (rc < 0) {
+        return -1;
+      }
+    } else if ((rc = parse_int_arg(pamh, argv[i], &params->default_rwindow_size,
+                                   "default_rwindow_size"))) {
+      if (rc < 0) {
+        return -1;
+      }
     } else if (!strcmp(argv[i], "debug")) {
       params->debug = 1;
     } else if (!strcmp(argv[i], "try_first_pass")) {
@@ -1636,6 +1649,9 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
   // Handle optional arguments that configure our PAM module
   Params params = { 0 };
   params.otp_length = -1;
+  // Default window size is 3. This gives us one STEP_SIZE second
+  // window before and after the current one.  (no default for rwindow)
+  params.default_window_size = 3;
 
   SecretFile secfile = { NULL, -1, { 0 }, NULL, 0 };
 

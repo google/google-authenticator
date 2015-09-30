@@ -60,12 +60,16 @@ Currently, the following options are recognized:
     for most users as invalid login attempts and generated-but-not-used
     tokens both contribute to synchronization problems.
 
+    If not specified, the default_window_size PAM config option is used.
+
   RWINDOW_SIZE n
     when set, this enables a resynchronization window for HOTP mode during
     which two, valid, consecutive codes used one right after the other will be
     considered to be a successful authentication, even when beyond the limit
     set by WINDOW_SIZE.
     Setting this to anything less than WINDOW_SIZE + 2 will have no effect.
+
+    If not specified, the default_rwindow_size PAM config option is used.
 
   _LAST_VALID_CODE_COUNTER
     an internal option used to track the first valid code of a resynchronization
