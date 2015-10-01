@@ -678,7 +678,7 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  base32_encode(buf, SECRET_BITS/8, (uint8_t *)secret, sizeof(secret));
+  base32_encode(buf, SECRET_BITS/8, (uint8_t *)secret, sizeof(secret), 0);
   int use_totp;
   if (mode == ASK_MODE) {
     use_totp = maybe("Do you want authentication tokens to be time-based");

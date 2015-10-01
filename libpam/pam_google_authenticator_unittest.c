@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
   puts("Testing base32 encoding");
   static const uint8_t dat[] = "Hello world...";
   uint8_t enc[((sizeof(dat) + 4)/5)*8 + 1];
-  assert(base32_encode(dat, sizeof(dat), enc, sizeof(enc)) == sizeof(enc)-1);
+  assert(base32_encode(dat, sizeof(dat), enc, sizeof(enc), 0) == sizeof(enc)-1);
   assert(!strcmp((char *)enc, "JBSWY3DPEB3W64TMMQXC4LQA"));
  
   puts("Testing base32 decoding");

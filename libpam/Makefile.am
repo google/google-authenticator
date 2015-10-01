@@ -1,6 +1,6 @@
 pamdir = $(libdir)/security
 
-bin_PROGRAMS=google-authenticator
+bin_PROGRAMS=google-authenticator base32
 pam_LTLIBRARIES=pam_google_authenticator.la
 noinst_PROGRAMS=demo pam_google_authenticator_unittest
 check_LTLIBRARIES=libpam_google_authenticator_testing.la
@@ -30,7 +30,12 @@ hmac.h \
 sha1.c \
 sha1.h
 
-TESTS=pam_google_authenticator_unittest
+base32_SOURCES=\
+base32_prog.c \
+base32.c \
+base32.h
+
+TESTS=pam_google_authenticator_unittest base32_test.sh
 pam_google_authenticator_unittest_SOURCES=\
 pam_google_authenticator_unittest.c \
 base32.c \

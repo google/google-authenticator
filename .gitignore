@@ -4,6 +4,7 @@ libpam/Makefile
 libpam/Makefile.in
 libpam/aclocal.m4
 libpam/autom4te.cache/
+libpam/base32
 libpam/compile
 libpam/config.guess
 libpam/config.h

@@ -1,3 +1,4 @@
+#include <stdio.h>
 // Base32 implementation
 //
 // Copyright 2010 Google Inc.
@@ -20,11 +21,27 @@
 #include "base32.h"
 
 int base32_decode(const uint8_t *encoded, uint8_t *result, int bufSize) {
-  int buffer = 0;
+  unsigned int buffer = 0;
   int bitsLeft = 0;
   int count = 0;
+  int pad = 0;
   for (const uint8_t *ptr = encoded; count < bufSize && *ptr; ++ptr) {
     uint8_t ch = *ptr;
+    if (ch == '=') {
+      pad = 1;
+      bitsLeft += 5;
+      if (bitsLeft >= 8) {
+        bitsLeft -= 8;
+      }
+      if (bitsLeft == 0) {
+        pad = 0;
+      }
+      continue;
+    }
+    if (pad) {
+      // In pad handling mode, but we didn't get a "="
+      return -1;
+    }
     if (ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n' || ch == '-') {
       continue;
     }
@@ -61,14 +78,24 @@ int base32_decode(const uint8_t *encoded, uint8_t *result, int bufSize) {
   return count;
 }
 
+/*
+ * Encode <length> bytes of data from <data> into the buffer <result> of
+ * length <bufSize>.  <result> is always nul terminated, unless bufSize is 0.
+ * If <pad> is non zero, include '=' characters at the end to ensure the ouput
+ * length is a multiple of 8 characters.
+ *
+ * Returns the number of bytes of <result> used, not including terminating nul.
+ * If there is not enough room in <result>, or if the input length is less
+ * than zero, then -1 is returned.
+ */
 int base32_encode(const uint8_t *data, int length, uint8_t *result,
-                  int bufSize) {
-  if (length < 0 || length > (1 << 28)) {
+                  int bufSize, int pad) {
+  if (length < 0 || length > (1 << 28) || bufSize <= 0) {
     return -1;
   }
   int count = 0;
   if (length > 0) {
-    int buffer = data[0];
+    unsigned int buffer = data[0];
     int next = 1;
     int bitsLeft = 8;
     while (count < bufSize && (bitsLeft > 0 || next < length)) {
@@ -88,8 +115,17 @@ int base32_encode(const uint8_t *data, int length, uint8_t *result,
       result[count++] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"[index];
     }
   }
-  if (count < bufSize) {
-    result[count] = '\000';
+  while (pad && count < bufSize && count % 8 != 0)
+  {
+    result[count] = '=';
+    count++;
   }
+  if (count >= bufSize) {
+    // We're out of room, so return an error, but leave as much encoded
+    // data as we were able to generate, zero terminated for safety.
+    result[bufSize - 1] = '\0';
+    return -1;
+  }
+  result[count] = '\000';
   return count;
 }
