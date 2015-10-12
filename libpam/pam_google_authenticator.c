@@ -226,7 +226,7 @@ static char *get_secret_filename(pam_handle_t *pamh, const Params *params,
     if (var) {
       size_t subst_len = strlen(subst);
       char *resized = realloc(secret_filename,
-                              strlen(secret_filename) + subst_len);
+                              strlen(secret_filename) + subst_len + 1);
       if (!resized) {
         goto err;
       }
@@ -699,8 +699,8 @@ static int set_cfg_value(pam_handle_t *pamh, SecretFile *secfile,
     memcpy(resized, secfile->secret_buf, start - secfile->secret_buf);
     memcpy(resized + (start - secfile->secret_buf) + total_len, stop, tail_len + 1);
     memset(secfile->secret_buf, 0, buf_len);
-    free(secfile->secret_buf);
     start = start - secfile->secret_buf + resized;
+    free(secfile->secret_buf);
     secfile->secret_buf = resized;
   }
 
@@ -1577,7 +1577,6 @@ static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
   int rc;
   for (int i = 0; i < argc; ++i) {
     if (!memcmp(argv[i], "secret=", 7)) {
-      free((void *)params->secret_filename_spec);
       params->secret_filename_spec = argv[i] + 7;
     } else if (!memcmp(argv[i], "user=", 5)) {
       uid_t uid;

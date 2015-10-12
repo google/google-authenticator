@@ -72,17 +72,16 @@ int pam_get_item(const pam_handle_t *pamh, int item_type,
   switch (item_type) {
     case PAM_SERVICE: {
       static const char *service = "google_authenticator_unittest";
-      memcpy(item, &service, sizeof(&service));
+      *item = service;
       return PAM_SUCCESS;
     }
     case PAM_USER: {
-      char *user = getenv("USER");
-      memcpy(item, &user, sizeof(&user));
+      *item = getenv("USER");
       return PAM_SUCCESS;
     }
     case PAM_CONV: {
       static struct pam_conv conv = { .conv = conversation }, *p_conv = &conv;
-      memcpy(item, &p_conv, sizeof(p_conv));
+      *item = p_conv;
       return PAM_SUCCESS;
     }
     case PAM_AUTHTOK: {
@@ -220,7 +219,9 @@ int main(int argc, char *argv[]) {
   for (int otp_mode = 0; otp_mode < 8; ++otp_mode) {
     // Create a secret file with a well-known test vector
     char fn[] = "/tmp/.google_authenticator_XXXXXX";
+    mode_t orig_umask = umask(S_IRWXG|S_IRWXO); // Only for the current user
     int fd = mkstemp(fn);
+    (void)umask(orig_umask);
     assert(fd >= 0);
     static const uint8_t secret[] = "2SH3V3GDW7ZNMGYE";
     assert(write(fd, secret, sizeof(secret)-1) == sizeof(secret)-1);
