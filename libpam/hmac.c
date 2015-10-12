@@ -41,7 +41,9 @@ void hmac_sha1(const uint8_t *key, int keyLength,
   for (int i = 0; i < keyLength; ++i) {
     tmp_key[i] = key[i] ^ 0x36;
   }
-  memset(tmp_key + keyLength, 0x36, 64 - keyLength);
+  if (keyLength < 64) {
+    memset(tmp_key + keyLength, 0x36, 64 - keyLength);
+  }
 
   // Compute inner digest
   sha1_init(&ctx);
