@@ -330,14 +330,11 @@ static int drop_privileges(pam_handle_t *pamh, const char *username, int uid,
 
 static int open_secret_file(pam_handle_t *pamh, const char *secret_filename,
                             struct Params *params, const char *username,
-                            int uid, off_t *size, time_t *mtime) {
+                            int uid, struct stat *orig_stat) {
   // Try to open "~/.google_authenticator"
-  *size = 0;
-  *mtime = 0;
   int fd = open(secret_filename, O_RDONLY);
-  struct stat sb;
   if (fd < 0 ||
-      fstat(fd, &sb) < 0) {
+      fstat(fd, orig_stat) < 0) {
     if (params->nullok != NULLERR && errno == ENOENT) {
       // The user doesn't have a state file, but the administrator said
       // that this is OK. We still return an error from open_secret_file(),
@@ -354,9 +351,9 @@ static int open_secret_file(pam_handle_t *pamh, const char *secret_filename,
   }
 
   // Check permissions on "~/.google_authenticator"
-  if ((sb.st_mode & 03577) != 0400 ||
-      !S_ISREG(sb.st_mode) ||
-      sb.st_uid != (uid_t)uid) {
+  if ((orig_stat->st_mode & 03577) != 0400 ||
+      !S_ISREG(orig_stat->st_mode) ||
+      orig_stat->st_uid != (uid_t)uid) {
     char buf[80];
     if (params->fixed_uid) {
       sprintf(buf, "user id %d", params->uid);
@@ -369,14 +366,12 @@ static int open_secret_file(pam_handle_t *pamh, const char *secret_filename,
   }
 
   // Sanity check for file length
-  if (sb.st_size < 1 || sb.st_size > 64*1024) {
+  if (orig_stat->st_size < 1 || orig_stat->st_size > 64*1024) {
     log_message(LOG_ERR, pamh,
                 "Invalid file size for \"%s\"", secret_filename);
     goto error;
   }
 
-  *size = sb.st_size;
-  *mtime = sb.st_mtime;
   return fd;
 }
 
@@ -424,7 +419,7 @@ static int is_totp(const char *buf) {
 static int write_file_contents(pam_handle_t *pamh,
                                const Params *params,
                                const char *secret_filename,
-                               off_t old_size, time_t old_mtime,
+                               struct stat *orig_stat,
                                const char *buf) {
   // Safely overwrite the old secret file.
   char *tmp_filename = malloc(strlen(secret_filename) + 2);
@@ -448,8 +443,9 @@ static int write_file_contents(pam_handle_t *pamh,
   // scratch code multiple times.
   struct stat sb;
   if (stat(secret_filename, &sb) != 0 ||
-      sb.st_size != old_size ||
-      sb.st_mtime != old_mtime) {
+      sb.st_ino != orig_stat->st_ino ||
+      sb.st_size != orig_stat->st_size ||
+      sb.st_mtime != orig_stat->st_mtime) {
     log_message(LOG_ERR, pamh,
                 "Secret file \"%s\" changed while trying to use "
                 "scratch code\n", secret_filename);
@@ -461,6 +457,12 @@ static int write_file_contents(pam_handle_t *pamh,
 
   // Write the new file contents
   if (write(fd, buf, strlen(buf)) != (ssize_t)strlen(buf)) {
+    close(fd);
+    unlink(tmp_filename);
+    free(tmp_filename);
+    goto removal_failure;
+  }
+  if (fsync(fd)) {
     close(fd);
     unlink(tmp_filename);
     free(tmp_filename);
@@ -1412,9 +1414,8 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
   const char *username;
   char       *secret_filename = NULL;
   int        uid = -1, old_uid = -1, old_gid = -1, fd = -1;
-  off_t      filesize = 0;
-  time_t     mtime = 0;
   char       *buf = NULL;
+  struct stat orig_stat = { 0 };
   uint8_t    *secret = NULL;
   int        secretLen = 0;
 
@@ -1434,8 +1435,9 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
       (secret_filename = get_secret_filename(pamh, &params, username, &uid)) &&
       !drop_privileges(pamh, username, uid, &old_uid, &old_gid) &&
       (fd = open_secret_file(pamh, secret_filename, &params, username, uid,
-                             &filesize, &mtime)) >= 0 &&
-      (buf = read_file_contents(pamh, &params, secret_filename, &fd, filesize)) &&
+                             &orig_stat)) >= 0 &&
+      (buf = read_file_contents(pamh, &params, secret_filename, &fd,
+                                orig_stat.st_size)) &&
       (secret = get_shared_secret(pamh, &params, secret_filename, buf, &secretLen)) &&
        rate_limit(pamh, secret_filename, &early_updated, &buf) >= 0) {
     long hotp_counter = get_hotp_counter(pamh, buf);
@@ -1615,8 +1617,7 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
 
   // Persist the new state.
   if (early_updated || updated) {
-    if (write_file_contents(pamh, &params, secret_filename, filesize,
-                            mtime, buf) < 0) {
+    if (write_file_contents(pamh, &params, secret_filename, &orig_stat, buf) < 0) {
       // Could not persist new state. Deny access.
       rc = PAM_AUTH_ERR;
     }
