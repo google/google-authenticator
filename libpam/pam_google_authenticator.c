@@ -56,6 +56,11 @@
 #define SECRET      "~/.google_authenticator"
 #define NINE_DIGIT_LIMIT (1000 * 1000 * 1000)
 
+#define PW_AND_CODE_PROMPT_PLAIN "Password & verification code: "
+#define CODE_PROMPT_PLAIN "Verification code: "
+#define PW_AND_CODE_PROMPT "Password & verification code (counter=%ld): "
+#define CODE_PROMPT "Verification code (counter=%ld): "
+
 typedef struct Params {
   const char *secret_filename_spec;
   enum { NULLERR=0, NULLOK, SECRETNOTFOUND } nullok;
@@ -68,6 +73,7 @@ typedef struct Params {
   int        forward_pass;
   int        debug;
   int        otp_length;
+  int        show_counter_in_prompt;
 } Params;
 
 static char oom;
@@ -1464,6 +1470,8 @@ static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
     } else if (!strcmp(argv[i], "echo-verification-code") ||
                !strcmp(argv[i], "echo_verification_code")) {
       params->echocode = PAM_PROMPT_ECHO_ON;
+    } else if (!strcmp(argv[i], "show_counter_in_prompt")) {
+      params->show_counter_in_prompt = 1;
     } else {
       log_message(LOG_ERR, pamh, "Unrecognized option \"%s\"", argv[i]);
       return -1;
@@ -1548,10 +1556,25 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
             // code or a two digit password immediately followed by a six
             // digit verification code. We have to loop and try both
             // options.
-            saved_pw = request_pass(pamh, params.echocode,
-                                    params.forward_pass ?
-                                    "Password & verification code: " :
-                                    "Verification code: ");
+
+            const char *prompt;
+            char _prompt[sizeof(PW_AND_CODE_PROMPT) + 19 + 1];
+
+            if (params.show_counter_in_prompt && hotp_counter > 0)
+            {
+              (void)snprintf(_prompt, sizeof(_prompt),
+                             params.forward_pass ?
+                              PW_AND_CODE_PROMPT :
+                              CODE_PROMPT,
+                             hotp_counter);
+              prompt = _prompt;
+            } else {
+              prompt = params.forward_pass ?
+                        PW_AND_CODE_PROMPT_PLAIN :
+                        CODE_PROMPT_PLAIN;
+            }
+
+            saved_pw = request_pass(pamh, params.echocode, prompt);
           }
           if (saved_pw) {
             pw = strdup(saved_pw);

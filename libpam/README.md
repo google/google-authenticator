@@ -148,3 +148,13 @@ Valid values are in the range 6-9.  The default if not specified is 6.
 Setting this option will change the code length for all users.
 It is not currently possible to set this on a user-by-user basis.
 
+### show_counter_in_prompt
+
+Show the current HOTP counter value, if any is available, in the prompt
+displayed to the user.  Note that this will slightly decrease the security
+of the token, since an attacker will only need to guess the shared secret
+and not also the counter value.  Assuming shared secrets of at least 20 bytes,
+the impact of knowing the few bits of state from the counter are likely to be
+minimal.  Of more concern may be that an attacker will be able to detect when
+the real user logs in.
+
