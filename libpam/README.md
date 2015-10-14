@@ -121,8 +121,9 @@ to disable it, you can do so on the module command line:
 
 ### no_increment_hotp
 
-Don't increment the counter for failed HOTP attempts. This is important if log
-attempts with failed passwords still get an OTP prompt.
+Don't increment the counter for failed HOTP attempts.  Normally you should set
+this so failed password attempts by an attacker without a token don't lock out
+the authorized user.
 
 ### nullok
 

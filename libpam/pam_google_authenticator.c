@@ -594,6 +594,46 @@ static char *get_cfg_value(pam_handle_t *pamh, const char *key,
   return NULL;
 }
 
+/* Attempt to parse a config value as a long, and returns it in *retval.
+ * If the config value does not exist, *retval is set to default_value,
+ * and 0 is returned.
+ * 
+ * On success, returns 0 and sets *retval.
+ * On errors, returns -1 and leaves *retval untouched.
+ * Errors include "oom" error from get_cfg_value(), or failure to parse
+ * the value as a number.
+ */
+static int get_cfg_value_long(pam_handle_t *pamh,
+                      const char *secret_filename, const char *cfg_contents,
+                      const char *cfg_name, long default_value, long *retval)
+{
+  const char *value = get_cfg_value(pamh, cfg_name, cfg_contents);
+  if (!value) {
+    *retval = default_value;
+    return 0;
+  } else if (value == &oom) {
+    // Out of memory. This is a fatal error.
+    return -1;
+  }
+
+  char *endptr;
+  errno = 0;
+  long lvalue = strtoul(value, &endptr, 10);
+  if (errno || !*value || value == endptr ||
+      (*endptr && *endptr != ' ' && *endptr != '\t' &&
+       *endptr != '\n' && *endptr != '\r')
+     ) {
+    free((void *)value);
+    log_message(LOG_ERR, pamh, "Invalid %s option in \"%s\"",
+                cfg_name, secret_filename);
+    return -1;
+  }
+  *retval = lvalue;
+  free((void *)value);
+  return 0;
+}
+
+
 static int set_cfg_value(pam_handle_t *pamh, const char *key, const char *val,
                          char **buf) {
   size_t key_len = strlen(key);
@@ -679,6 +719,16 @@ static int set_cfg_value(pam_handle_t *pamh, const char *key, const char *val,
 
   return 0;
 }
+
+static int set_cfg_value_long(pam_handle_t *pamh, const char *key, long val,
+                         char **buf) {
+  char val_str[64];
+  if (snprintf(val_str, sizeof(val_str), "%ld", val) > sizeof(val_str)) {
+    return -1;
+  }
+  return set_cfg_value(pamh, key, val_str, buf);
+}
+
 
 static int step_size(pam_handle_t *pamh, const char *secret_filename,
                      const char *buf) {
@@ -962,29 +1012,35 @@ static int check_scratch_codes(pam_handle_t *pamh,
 
 static int window_size(pam_handle_t *pamh, const char *secret_filename,
                        const char *buf) {
-  const char *value = get_cfg_value(pamh, "WINDOW_SIZE", buf);
-  if (!value) {
-    // Default window size is 3. This gives us one STEP_SIZE second
-    // window before and after the current one.
-    return 3;
-  } else if (value == &oom) {
-    // Out of memory. This is a fatal error.
+  long window;
+  // Default window size is 3. This gives us one STEP_SIZE second
+  // window before and after the current one.
+  const long default_value = 3L;
+  if (get_cfg_value_long(pamh, secret_filename, buf, "WINDOW_SIZE",
+                         default_value, &window) < 0) {
     return 0;
   }
-
-  char *endptr;
-  errno = 0;
-  int window = (int)strtoul(value, &endptr, 10);
-  if (errno || !*value || value == endptr ||
-      (*endptr && *endptr != ' ' && *endptr != '\t' &&
-       *endptr != '\n' && *endptr != '\r') ||
-      window < 1 || window > 100) {
-    free((void *)value);
-    log_message(LOG_ERR, pamh, "Invalid WINDOW_SIZE option in \"%s\"",
+  if (window < 1 || window > 100) {
+    log_message(LOG_ERR, pamh, "Out of range WINDOW_SIZE option in \"%s\"",
                 secret_filename);
     return 0;
   }
-  free((void *)value);
+  return (int)window;
+}
+
+static int rwindow_size(pam_handle_t *pamh, const char *secret_filename,
+                        const char *buf) {
+  long window;
+  const long default_value = 0L;  // No resync window by default.
+  if (get_cfg_value_long(pamh, secret_filename, buf, "RWINDOW_SIZE",
+                         default_value, &window) < 0) {
+    return 0;
+  }
+  if (window < 0 || window > 1000) {
+    log_message(LOG_ERR, pamh, "Out of range RWINDOW_SIZE option in \"%s\"",
+                secret_filename);
+    return 0;
+  }
   return window;
 }
 
@@ -1370,25 +1426,84 @@ static int check_counterbased_code(pam_handle_t *pamh,
   if (!window) {
     return -1;
   }
-  for (int i = 0; i < window; ++i) {
+
+  // Note: rwindow is not a required option, 0 means don't allow resync
+  int rwindow = rwindow_size(pamh, secret_filename, *buf);
+
+  long valid_code_counter = 0;
+  int update_counter = 0;
+  long last_valid_code_counter = 0; // aka none
+
+  // Is the resync window enabled, and was the previous auth attempt valid?
+  // XXX should rate limit this to 1/s
+  if (rwindow > 0 &&
+      get_cfg_value_long(pamh, secret_filename, *buf,
+                         "_LAST_VALID_CODE_COUNTER", 0,
+                         &last_valid_code_counter) == 0 &&
+      last_valid_code_counter > 0) {
+
+      uint32_t hash = compute_code(secret, secretLen, last_valid_code_counter + 1, params->otp_length);
+      if (hash == (unsigned int)code) {
+
+        // The user entered the second consecutive valid code within the resync
+        // window.  Skip the regular loop, and consider this a valid auth.
+        valid_code_counter = last_valid_code_counter + 1;
+        update_counter = 1;
+        log_message(LOG_INFO, pamh, "Received second valid HOTP code, resync successful at counter %d for %s\n",
+                    valid_code_counter, secret_filename);
+      }
+
+      if (set_cfg_value_long(pamh, "_LAST_VALID_CODE_COUNTER", 0, buf) < 0) {
+        log_message(LOG_EMERG, pamh, "Unable to clear _LAST_VALID_CODE_COUNTER in %s\n", secret_filename);
+        return -1;
+      }
+  }
+
+  for (int i = 0; !valid_code_counter &&
+                  (i < window || (rwindow > 0 && i < (rwindow - 1)) ); ++i) {
+
     uint32_t hash = compute_code(secret, secretLen, hotp_counter + i, params->otp_length);
 #ifdef TESTING
     if (params->debug) {
-      log_message(LOG_ERR, pamh, "compute_code: %d vs input %d\n", hash, (unsigned int)code);
+      log_message(LOG_ERR, pamh, "compute_code: %d vs input %d\n",
+                  hash, (unsigned int)code);
     }
 #endif
+
     if (hash == (unsigned int)code) {
-      char counter_str[40];
-      sprintf(counter_str, "%ld", hotp_counter + i + 1);
-      if (set_cfg_value(pamh, "HOTP_COUNTER", counter_str, buf) < 0) {
-        return -1;
+      valid_code_counter = hotp_counter + i;
+      if (i < window) {
+        update_counter = 1;
       }
-      *updated = 1;
-      *must_advance_counter = 0;
-      return 0;
+      break;
     }
   }
 
+  if (valid_code_counter && update_counter) {
+    // Normal, valid, in-window code, or second valid in-sync-window code.
+    if (set_cfg_value_long(pamh, "HOTP_COUNTER", valid_code_counter + 1, buf) < 0) {
+      return -1;
+    }
+    *updated = 1;
+    *must_advance_counter = 0;
+    return 0;
+  }
+  else if (valid_code_counter) {
+    // First valid code within resync window.
+    // Save it for the next auth attempt.  Do NOT set HOTP_COUNTER.
+    if (set_cfg_value_long(pamh, "_LAST_VALID_CODE_COUNTER",
+                           valid_code_counter, buf) < 0) {
+      log_message(LOG_EMERG, pamh, "Unable to set _LAST_VALID_CODE_COUNTER in %s\n",
+                  secret_filename);
+      return -1;
+    }
+    log_message(LOG_INFO, pamh, "Received first valid HOTP code, resync started at counter %d for %s\n",
+                valid_code_counter, secret_filename);
+    *updated = 1;
+    return -1; // "fail" for now
+  }
+
+  // Note: counter not advanced when PAM cfg sets no_increment_hotp
   *must_advance_counter = 1;
   return 1;
 }
@@ -1469,6 +1584,7 @@ static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
       params->nullok = NULLOK;
     } else if (!strcmp(argv[i], "echo-verification-code") ||
                !strcmp(argv[i], "echo_verification_code")) {
+      // Note: dash version of this option is for backward compat only.
       params->echocode = PAM_PROMPT_ECHO_ON;
     } else if (!strcmp(argv[i], "show_counter_in_prompt")) {
       params->show_counter_in_prompt = 1;
