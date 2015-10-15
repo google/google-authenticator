@@ -129,11 +129,10 @@ static void print_diagnostics(int signo) {
   _exit(1);
 }
 
-static void verify_prompts_shown(int expected_prompts_shown) {
-  assert(num_prompts_shown == expected_prompts_shown);
-  // Reset for the next count.
-  num_prompts_shown = 0;
-}
+#define verify_prompts_shown(expected_prompts_shown) do { \
+  assert(num_prompts_shown == (expected_prompts_shown)); \
+  num_prompts_shown = 0; /* Reset for the next count. */ \
+} while(0)
 
 int main(int argc, char *argv[]) {
   // Testing Base32 encoding
