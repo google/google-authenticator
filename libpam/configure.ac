@@ -11,6 +11,16 @@ AC_CONFIG_HEADER(config.h)
 AC_PROG_CC
 AC_PROG_CC_STDC
 
+AX_APPEND_COMPILE_FLAGS([-Wall -fstack-protector])
+AC_ARG_ENABLE([Werror],
+    [AS_HELP_STRING([--enable-Werror], [Enable passing of -Werror, if your compiler supports it])],
+    [],
+    [enable_Werror=no])
+
+AS_IF([test "x$enable_Werror" = "xyes"], [
+AX_APPEND_COMPILE_FLAGS([-Werror])
+])
+
 AC_CHECK_HEADERS([sys/fsuid.h])
 AC_CHECK_FUNCS([setfsuid])
 
