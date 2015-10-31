@@ -49,7 +49,7 @@ static int conversation(int num_msg, PAM_CONST struct pam_message **msg,
        msg[0]->msg_style == PAM_PROMPT_ECHO_ON)) {
     *resp = malloc(sizeof(struct pam_response));
     assert(*resp);
-    (*resp)->resp = calloc(1024, 0);
+    (*resp)->resp = calloc(1024, 1);
     struct termios termios = old_termios;
     if (msg[0]->msg_style == PAM_PROMPT_ECHO_OFF) {
       termios.c_lflag &= ~(ECHO|ECHONL);
