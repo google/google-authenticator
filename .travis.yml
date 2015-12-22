@@ -13,3 +13,4 @@ addons:
     packages:
     - libpam0g-dev
     - libqrencode3
+    - libconfig-dev
