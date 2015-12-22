@@ -58,8 +58,9 @@ AC_SEARCH_LIBS([dlopen], [dl])
 AC_ARG_ENABLE(  config,
         [ --enable-config[=yes|no] Enable shared config between authenticator components (default=no)])
 
-AS_IF(  [ test 'x$enable_config' = 'xyes' -o 'x$enable_config' = 'x'],
-    [ AC_CHECK_HEADERS([libconfig.h])],
+AS_IF(  [ test "x$enable_config" = "xyes" -o "x$enable_config" = "x"],
+    [ AC_CHECK_HEADERS([libconfig.h],[ LDFLAGS+="-lconfig" ],
+        [AC_MSG_ERROR([Libconfig requested but not found])],[])],
     [])
 
 AC_CONFIG_FILES([Makefile])

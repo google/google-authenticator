@@ -35,6 +35,11 @@
 #include "hmac.h"
 #include "sha1.h"
 
+#if HAVE_LIBCONFIG_H
+  #include <libconfig.h>
+  char *config_filename;
+#endif
+
 #define SECRET                    "/.google_authenticator"
 #define SECRET_BITS               80          // Must be divisible by eight
 #define VERIFICATION_CODE_MODULUS (1000*1000) // Six digits
@@ -42,6 +47,7 @@
 #define SCRATCHCODE_LENGTH        8           // Eight digits per scratchcode
 #define BYTES_PER_SCRATCHCODE     4           // 32bit of randomness is enough
 #define BITS_PER_BASE32_CHAR      5           // Base32 expands space by 8/5
+#define CONFIG                    "/etc/google_authenticator.cfg"
 
 static enum { QR_UNSET=0, QR_NONE, QR_ANSI, QR_UTF8 } qr_mode = QR_UNSET;
 
@@ -366,16 +372,181 @@ static char *maybeAddOption(const char *msg, char *buf, size_t nbuf,
   return buf;
 }
 
+static char *get_secret_filename(const char *spec) {
+
+  // Obtain the user's id and home directory
+  struct passwd *pw = getpwuid(getuid());
+  // declare buffer for computed filename
+  char *secret_filename = NULL;
+  // declare pointer to username
+  char *username = NULL;
+  char *home_dir = NULL;
+
+  if ( pw != NULL) {
+    username = strdup(pw->pw_name);
+    home_dir = strdup(pw->pw_dir);
+  }
+  else {
+    goto err;
+  }
+
+  // Expand filename specification to an actual filename.
+  if ((secret_filename = strdup(spec)) == NULL) {
+    goto err;
+  }
+  int allow_tilde = 1;
+  char *cur = NULL, *var = NULL;
+  const char *subst = NULL;
+  size_t var_len = 0;
+  for (int offset = 0; secret_filename[offset];) {
+    cur = secret_filename + offset;
+    var = NULL;
+    var_len = 0;
+    subst = NULL;
+    if (allow_tilde && *cur == '~') {
+      var_len = 1;
+      subst = home_dir;
+      var = cur;
+    } else if (secret_filename[offset] == '$') {
+      if (!memcmp(cur, "${HOME}", 7)) {
+        var_len = 7;
+        subst = home_dir;
+        var = cur;
+      } else if (!memcmp(cur, "${USER}", 7)) {
+        var_len = 7;
+        subst = username;
+        var = cur;
+      }
+    }
+    if (var) {
+      size_t subst_len = strlen(subst);
+      char *resized = realloc(secret_filename,
+                              strlen(secret_filename) + subst_len);
+      if (!resized) {
+        goto err;
+      }
+      var += resized - secret_filename;
+      secret_filename = resized;
+      memmove(var + subst_len, var + var_len, strlen(var + var_len) + 1);
+      memmove(var, subst, subst_len);
+      offset = var + subst_len - resized;
+      allow_tilde = 0;
+    } else {
+      allow_tilde = *cur == '/';
+      ++offset;
+    }
+  }
+
+  return secret_filename;
+
+  err:
+    puts("Failed to compute location of secret file");
+    free(secret_filename);
+    return NULL;
+}
+
+#if HAVE_LIBCONFIG_H
+static int parse_console_config_file(int *debug, int *force, int *quiet,
+                                     int *r_limit, int *r_time,
+                                     int *allow_reuse, int *step_size,
+                                     int *window_size, int *otp_mode,
+                                     char **secret_fn, char **issuer,
+                                     char **label, const char *config_filename){
+
+  const char *config_file = (strcasecmp(config_filename, "default") == 0) ? CONFIG : config_filename;
+
+  int int_opt;
+  char *string_opt;
+
+  const config_t cfg;
+
+  config_init(&cfg);
+
+  if (!config_read_file(&cfg, config_file))
+  {
+    printf("Unable to read configuration file %s:%d - %s\n", config_file, config_error_line(&cfg), config_error_text(&cfg));
+    goto parse_config_error;
+  }
+
+  if (config_lookup_string(&cfg, "secret", &string_opt)) {
+    // errors are handled when the secret file is opened, so it is just passed through wholesale.
+    *secret_fn = get_secret_filename(string_opt);
+  }
+
+  if (config_lookup_string(&cfg, "label", &string_opt)) {
+      // errors are handled when the secret file is opened, so it is just passed through wholesale.
+      *label = strdup(string_opt);
+    }
+
+  if (config_lookup_string(&cfg, "otp_mode", &string_opt)) {
+    if(!strcasecmp(string_opt, "time")) {
+      *otp_mode = 2;
+    } else if (!strcasecmp(string_opt, "hash")) {
+      *otp_mode = 1;
+    } else {
+      printf("Unknown OTP mode \"%s\". Options are \"time\" or \"hash\".\n", string_opt);
+      goto parse_config_error;
+    }
+  }
+  if (config_lookup_string(&cfg, "issuer", &string_opt)) {
+      // The issuer can be an empty string, or any string with length >0 and is handled elsewhere.
+      // As such, it should be passed through unchanged.
+      *issuer = strdup(string_opt);
+    }
+  if (config_lookup_string(&cfg, "qr_mode", &string_opt)) {
+      if(!strcasecmp(string_opt, "none")) {
+        qr_mode = QR_NONE;
+      } else if (!strcasecmp(string_opt, "ansi")) {
+        qr_mode = QR_ANSI;
+      } else if (!strcasecmp(string_opt, "utf8")) {
+        qr_mode = QR_UTF8;
+      } else {
+        printf("Unknown QR mode \"%s\". Options are \"none\", \"ansi\" or \"utf8\".\n", string_opt);
+        goto parse_config_error;
+      }
+    }
+  if(config_lookup_bool(&cfg, "debug", &int_opt)) {
+    *debug = int_opt;
+  }
+  if(config_lookup_bool(&cfg, "allow_reuse", &int_opt)) {
+    *allow_reuse = int_opt;
+  }
+  if(config_lookup_bool(&cfg, "quiet", &int_opt)) {
+    *quiet = int_opt;
+  }
+  if(config_lookup_int(&cfg, "rate_limit", &int_opt)) {
+    *r_limit = int_opt;
+  }
+  if(config_lookup_int(&cfg, "rate_timeout", &int_opt)) {
+    *r_time = int_opt;
+  }
+  if(config_lookup_int(&cfg, "totp_step", &int_opt)) {
+    *step_size = int_opt;
+  }
+
+  puts(secret_fn);
+
+  return 0;
+
+  parse_config_error:
+  config_destroy(&cfg);
+  return -1;
+}
+#endif
+
 static void usage(void) {
   puts(
  "google-authenticator [<options>]\n"
  " -h, --help               Print this message\n"
- " -c, --counter-based      Set up counter-based (HOTP) verification\n"
+#if HAVE_LIBCONFIG_H
+ " -c, --config[=file|default] Specify a configuration file location\n"
+#endif
+ " -H, --counter-based      Set up counter-based (HOTP) verification\n"
  " -t, --time-based         Set up time-based (TOTP) verification\n"
  " -d, --disallow-reuse     Disallow reuse of previously used TOTP tokens\n"
  " -D, --allow-reuse        Allow reuse of previously used TOTP tokens\n"
  " -f, --force              Write file without first confirming with user\n"
- " -l, --label=<label>      Override the default label in \"otpauth://\" URL\n"
+ " -l, --label=<label>      Override the dnf debuginfo-install libconfig-1.5-3.fc23.x86_64default label in \"otpauth://\" URL\n"
  " -i, --issuer=<issuer>    Override the default issuer in \"otpauth://\" URL\n"
  " -q, --quiet              Quiet mode\n"
  " -Q, --qr-mode={NONE,ANSI,UTF8}\n"
@@ -415,12 +586,20 @@ int main(int argc, char *argv[]) {
   char *issuer = NULL;
   int step_size = 0;
   int window_size = 0;
+  int debug = 0;
   int idx;
   for (;;) {
-    static const char optstring[] = "+hctdDfl:i:qQ:r:R:us:S:w:W";
+#if HAVE_LIBCONFIG_H
+    static const char optstring[] = "+hc::HtdDfl:i:qQ:r:R:us:S:w:W";
+#else
+    static const char optstring[] = "+hHtdDfl:i:qQ:r:R:us:S:w:W";
+#endif
     static struct option options[] = {
       { "help",             0, 0, 'h' },
-      { "counter-based",    0, 0, 'c' },
+#if HAVE_LIBCONFIG_H
+      { "config",           2, 0, 'c' },
+#endif
+      { "counter-based",    0, 0, 'H' },
       { "time-based",       0, 0, 't' },
       { "disallow-reuse",   0, 0, 'd' },
       { "allow-reuse",      0, 0, 'D' },
@@ -459,7 +638,24 @@ int main(int argc, char *argv[]) {
         _exit(1);
       }
       exit(0);
-    } else if (!idx--) {
+    }
+#if HAVE_LIBCONFIG_H
+    else if (!idx--) {
+      //config file
+      // we need to process this first so the other arguments override the
+      // configuration file.
+      // if options provided without argument, use the CONFIG define
+      config_filename = optarg ? optarg : CONFIG;
+      if ( parse_console_config_file(&debug, &force, &quiet, &r_limit, &r_time,
+                                &reuse, &step_size, &window_size,
+                                &mode, &secret_fn, &issuer, &label,
+                                config_filename) != 0 ) {
+        printf("Unable to parse configuration file \"%s\"", config_filename);
+        _exit(1);
+      }
+    }
+#endif
+    else if (!idx--) {
       // counter-based
       if (mode != ASK_MODE) {
         fprintf(stderr, "Duplicate -c and/or -t option detected\n");

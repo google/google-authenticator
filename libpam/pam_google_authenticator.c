@@ -36,6 +36,11 @@
 #include <sys/fsuid.h>
 #endif
 
+#ifdef HAVE_LIBCONFIG_H
+  #include <libconfig.h>
+  char *config_filename;
+#endif
+
 #ifndef PAM_EXTERN
 #define PAM_EXTERN
 #endif
@@ -54,6 +59,7 @@
 
 #define MODULE_NAME "pam_google_authenticator"
 #define SECRET      "~/.google_authenticator"
+#define CONFIG      "/etc/google_authenticator.cfg"
 
 typedef struct Params {
   const char *secret_filename_spec;
@@ -1366,6 +1372,63 @@ static int parse_user(pam_handle_t *pamh, const char *name, uid_t *uid) {
   return 0;
 }
 
+#if HAVE_LIBCONFIG_H
+static int parse_pam_config_file(pam_handle_t *pamh, Params *params, const char *config_filename) {
+
+  const char *config_file = (strcasecmp(config_filename, "default") == 0) ? CONFIG : config_filename;
+  const char *secret, *pass_mode;
+  int opt;
+
+  config_t cfg;
+
+  config_init(&cfg);
+
+  if (!config_read_file(&cfg, config_file))
+  {
+    log_message(LOG_ERR, pamh, "Unable to read configuration file %s:%d - %s", config_file, config_error_line(&cfg), config_error_text(&cfg));
+    goto parse_config_error;
+  }
+
+  if (config_lookup_string(&cfg, "secret", &secret)) {
+    params->secret_filename_spec = secret;
+  }
+  if (config_lookup_string(&cfg, "pass_mode", &pass_mode)) {
+    if(!strcasecmp(pass_mode, "try_first_pass")) {
+      params->pass_mode = TRY_FIRST_PASS;
+    } else if (!strcasecmp(pass_mode, "use_first_pass")) {
+      params->pass_mode = USE_FIRST_PASS;
+    } else {
+      log_message(LOG_ERR, pamh, "Unknown pass_mode \"%s\". Options are \"use_first_pass\" or \"try_first_pass\"", pass_mode);
+      goto parse_config_error;
+    }
+  }
+  if(config_lookup_bool(&cfg, "debug", &opt)) {
+    params->debug = opt;
+  }
+  if(config_lookup_bool(&cfg, "forward_pass", &opt)) {
+    params->forward_pass = opt;
+  }
+  if(config_lookup_bool(&cfg, "noskewadj", &opt)) {
+    params->noskewadj = opt;
+  }
+  if(config_lookup_bool(&cfg, "no_increment_hotp", &opt)) {
+    params->no_increment_hotp = opt;
+  }
+  if(config_lookup_bool(&cfg, "nullok", &opt)) {
+    params->nullok = opt ? NULLOK : NULLERR;
+  }
+  if(config_lookup_bool(&cfg, "echo-verification-code", &opt)) {
+    params->echocode = opt ? PAM_PROMPT_ECHO_ON : PAM_PROMPT_ECHO_OFF;
+  }
+
+  return 0;
+
+  parse_config_error:
+  config_destroy(&cfg);
+  return -1;
+}
+#endif
+
 static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
                       Params *params) {
   params->debug = 0;
@@ -1381,7 +1444,17 @@ static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
       }
       params->fixed_uid = 1;
       params->uid = uid;
-    } else if (!strcmp(argv[i], "debug")) {
+    }
+#if HAVE_LIBCONFIG_H
+      else if (!memcmp(argv[i], "config=", 7)) {
+        config_filename = argv[i] + 7;
+      if( parse_pam_config_file(pamh, params, config_filename) != 0 ) {
+        log_message(LOG_ERR, pamh, "Unable to parse configuration file \"%s\"", config_filename);
+        return -1;
+      }
+    }
+#endif
+    else if (!strcmp(argv[i], "debug")) {
       params->debug = 1;
     } else if (!strcmp(argv[i], "try_first_pass")) {
       params->pass_mode = TRY_FIRST_PASS;
