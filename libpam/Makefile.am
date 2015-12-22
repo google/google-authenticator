@@ -5,7 +5,7 @@ pam_LTLIBRARIES=pam_google_authenticator.la
 noinst_PROGRAMS=demo pam_google_authenticator_unittest
 check_LTLIBRARIES=libpam_google_authenticator_testing.la
 
-dist_doc_DATA = FILEFORMAT README.md
+dist_doc_DATA = FILEFORMAT README.md google_authenticator.cfg.example
 dist_html_DATA = totp.html
 
 MODULES_LDFLAGS = -avoid-version -module -shared -export-dynamic

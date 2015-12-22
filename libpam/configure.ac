@@ -54,6 +54,14 @@ AC_LANG_POP(C)
 
 AC_SEARCH_LIBS([dlopen], [dl])
 
+# Allow option feature for a shared config file between pam_google_authenticator.so and google-authenticator
+AC_ARG_ENABLE(  config,
+        [ --enable-config[=yes|no] Enable shared config between authenticator components (default=no)])
+
+AS_IF(  [ test 'x$enable_config' = 'xyes' -o 'x$enable_config' = 'x'],
+    [ AC_CHECK_HEADERS([libconfig.h])],
+    [])
+
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
 
