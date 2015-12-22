@@ -38,7 +38,6 @@
 
 #ifdef HAVE_LIBCONFIG_H
   #include <libconfig.h>
-  char *config_filename;
 #endif
 
 #ifndef PAM_EXTERN
@@ -1447,7 +1446,7 @@ static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
     }
 #if HAVE_LIBCONFIG_H
       else if (!memcmp(argv[i], "config=", 7)) {
-        config_filename = argv[i] + 7;
+        const char *config_filename = argv[i] + 7;
       if( parse_pam_config_file(pamh, params, config_filename) != 0 ) {
         log_message(LOG_ERR, pamh, "Unable to parse configuration file \"%s\"", config_filename);
         return -1;

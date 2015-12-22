@@ -456,13 +456,13 @@ static int parse_console_config_file(int *debug, int *force, int *quiet,
   const char *config_file = (strcasecmp(config_filename, "default") == 0) ? CONFIG : config_filename;
 
   int int_opt;
-  char *string_opt;
+  const char *string_opt;
 
   const config_t cfg;
 
-  config_init(&cfg);
+  config_init((config_t *) &cfg);
 
-  if (!config_read_file(&cfg, config_file))
+  if (!config_read_file((config_t *) &cfg, config_file))
   {
     printf("Unable to read configuration file %s:%d - %s\n", config_file, config_error_line(&cfg), config_error_text(&cfg));
     goto parse_config_error;
@@ -524,12 +524,10 @@ static int parse_console_config_file(int *debug, int *force, int *quiet,
     *step_size = int_opt;
   }
 
-  puts(secret_fn);
-
   return 0;
 
   parse_config_error:
-  config_destroy(&cfg);
+  config_destroy((config_t *) &cfg);
   return -1;
 }
 #endif
@@ -647,8 +645,8 @@ int main(int argc, char *argv[]) {
       // if options provided without argument, use the CONFIG define
       config_filename = optarg ? optarg : CONFIG;
       if ( parse_console_config_file(&debug, &force, &quiet, &r_limit, &r_time,
-                                &reuse, &step_size, &window_size,
-                                &mode, &secret_fn, &issuer, &label,
+                                (int *) &reuse, &step_size, &window_size,
+                                (int *) &mode, &secret_fn, &issuer, &label,
                                 config_filename) != 0 ) {
         printf("Unable to parse configuration file \"%s\"", config_filename);
         _exit(1);
