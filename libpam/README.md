@@ -85,10 +85,7 @@ not have traditional UNIX accounts on your system.
 
 When using non-standard options, setting a configuration file may reduce the complexity when working with secret files. This option is only available when compiled with the ```--enable-config``` option.
 
-If compiled with configuration file support, and no file is provided, ```/etc/google_authenticator.cfg``` is used by default. The configuration file supports settings for all command-line and PAM options.
-
-If Google Authenticator has been compiled with configuration files support, and is not required, the ```use_config option``` in the configuration file will disable the feature.
-Options provided at the command line or in the PAM configuration file will override the options provided in the configuration file.
+If run with the configuration ( `config=` in PAM, `--config` at the command line) option, and no file name is provided, `/etc/google_authenticator.cfg` is used by default. The configuration file supports settings for all command-line and PAM options.
 
 ## Module options
 
