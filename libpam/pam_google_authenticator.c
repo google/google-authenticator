@@ -416,7 +416,7 @@ static char *read_file_contents(pam_handle_t *pamh,
   // Terminate the buffer with a NUL byte.
   buf[filesize] = '\000';
 
-  if(params->debug) {
+  if (params->debug) {
     log_message(LOG_INFO, pamh, "debug: \"%s\" read", secret_filename);
   }
   return buf;
@@ -513,7 +513,7 @@ static uint8_t *get_shared_secret(pam_handle_t *pamh,
   }
   memset(secret + *secretLen, 0, base32Len + 1 - *secretLen);
 
-  if(params->debug) {
+  if (params->debug) {
     log_message(LOG_INFO, pamh, "debug: shared secret in \"%s\" processed", secret_filename);
   }
   return secret;
@@ -917,7 +917,7 @@ static int check_scratch_codes(pam_handle_t *pamh,
       *updated = 1;
 
       // Successfully removed scratch code. Allow user to log in.
-      if(params->debug) {
+      if (params->debug) {
         log_message(LOG_INFO, pamh, "debug: scratch code %d used and removed from \"%s\"", code, secret_filename);
       }
       return 0;
@@ -926,7 +926,7 @@ static int check_scratch_codes(pam_handle_t *pamh,
   }
 
   // No scratch code has been used. Continue checking other types of codes.
-  if(params->debug) {
+  if (params->debug) {
     log_message(LOG_INFO, pamh, "debug: no scratch code used from \"%s\"", secret_filename);
   }
   return 1;
@@ -1283,7 +1283,7 @@ static int check_timebased_code(pam_handle_t *pamh, const char*secret_filename,
       }
     }
     if (skew != 1000000) {
-      if(params->debug) {
+      if (params->debug) {
         log_message(LOG_INFO, pamh, "debug: time skew adjusted");
       }
       return check_time_skew(pamh, secret_filename, updated, buf, skew, tm);
@@ -1392,7 +1392,7 @@ static int parse_pam_config_file(pam_handle_t *pamh, Params *params, const char 
     params->secret_filename_spec = secret;
   }
   if (config_lookup_string(&cfg, "pass_mode", &pass_mode)) {
-    if(!strcasecmp(pass_mode, "try_first_pass")) {
+    if (!strcasecmp(pass_mode, "try_first_pass")) {
       params->pass_mode = TRY_FIRST_PASS;
     } else if (!strcasecmp(pass_mode, "use_first_pass")) {
       params->pass_mode = USE_FIRST_PASS;
@@ -1401,22 +1401,22 @@ static int parse_pam_config_file(pam_handle_t *pamh, Params *params, const char 
       goto parse_config_error;
     }
   }
-  if(config_lookup_bool(&cfg, "debug", &opt)) {
+  if (config_lookup_bool(&cfg, "debug", &opt)) {
     params->debug = opt;
   }
-  if(config_lookup_bool(&cfg, "forward_pass", &opt)) {
+  if (config_lookup_bool(&cfg, "forward_pass", &opt)) {
     params->forward_pass = opt;
   }
-  if(config_lookup_bool(&cfg, "noskewadj", &opt)) {
+  if (config_lookup_bool(&cfg, "noskewadj", &opt)) {
     params->noskewadj = opt;
   }
-  if(config_lookup_bool(&cfg, "no_increment_hotp", &opt)) {
+  if (config_lookup_bool(&cfg, "no_increment_hotp", &opt)) {
     params->no_increment_hotp = opt;
   }
-  if(config_lookup_bool(&cfg, "nullok", &opt)) {
+  if (config_lookup_bool(&cfg, "nullok", &opt)) {
     params->nullok = opt ? NULLOK : NULLERR;
   }
-  if(config_lookup_bool(&cfg, "echo-verification-code", &opt)) {
+  if (config_lookup_bool(&cfg, "echo-verification-code", &opt)) {
     params->echocode = opt ? PAM_PROMPT_ECHO_ON : PAM_PROMPT_ECHO_OFF;
   }
 
@@ -1447,7 +1447,7 @@ static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
 #if HAVE_LIBCONFIG_H
       else if (!memcmp(argv[i], "config=", 7)) {
         const char *config_filename = argv[i] + 7;
-      if( parse_pam_config_file(pamh, params, config_filename) != 0 ) {
+      if (parse_pam_config_file(pamh, params, config_filename) != 0 ) {
         log_message(LOG_ERR, pamh, "Unable to parse configuration file \"%s\"", config_filename);
         return -1;
       }

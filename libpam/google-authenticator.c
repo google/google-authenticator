@@ -382,7 +382,7 @@ static char *get_secret_filename(const char *spec) {
   char *username = NULL;
   char *home_dir = NULL;
 
-  if ( pw != NULL) {
+  if (pw != NULL) {
     username = strdup(pw->pw_name);
     home_dir = strdup(pw->pw_dir);
   }
@@ -479,7 +479,7 @@ static int parse_console_config_file(int *debug, int *force, int *quiet,
     }
 
   if (config_lookup_string(&cfg, "otp_mode", &string_opt)) {
-    if(!strcasecmp(string_opt, "time")) {
+    if (!strcasecmp(string_opt, "time")) {
       *otp_mode = 2;
     } else if (!strcasecmp(string_opt, "hash")) {
       *otp_mode = 1;
@@ -494,7 +494,7 @@ static int parse_console_config_file(int *debug, int *force, int *quiet,
       *issuer = strdup(string_opt);
     }
   if (config_lookup_string(&cfg, "qr_mode", &string_opt)) {
-      if(!strcasecmp(string_opt, "none")) {
+      if (!strcasecmp(string_opt, "none")) {
         qr_mode = QR_NONE;
       } else if (!strcasecmp(string_opt, "ansi")) {
         qr_mode = QR_ANSI;
@@ -505,27 +505,27 @@ static int parse_console_config_file(int *debug, int *force, int *quiet,
         goto parse_config_error;
       }
     }
-  if(config_lookup_bool(&cfg, "debug", &int_opt)) {
+  if (config_lookup_bool(&cfg, "debug", &int_opt)) {
     *debug = int_opt;
   }
-  if(config_lookup_bool(&cfg, "allow_reuse", &int_opt)) {
+  if (config_lookup_bool(&cfg, "allow_reuse", &int_opt)) {
     // we don't have acces to the private enum in here,
     // so we need to set the enum by value for now.
     *allow_reuse = int_opt ? 2 : 1;
   }
-  if(config_lookup_bool(&cfg, "quiet", &int_opt)) {
+  if (config_lookup_bool(&cfg, "quiet", &int_opt)) {
     *quiet = int_opt;
   }
-  if(config_lookup_int(&cfg, "rate_limit", &int_opt)) {
+  if (config_lookup_int(&cfg, "rate_limit", &int_opt)) {
     *r_limit = int_opt;
   }
-  if(config_lookup_int(&cfg, "rate_timeout", &int_opt)) {
+  if (config_lookup_int(&cfg, "rate_timeout", &int_opt)) {
     *r_time = int_opt;
   }
-  if(config_lookup_int(&cfg, "totp_step", &int_opt)) {
+  if (config_lookup_int(&cfg, "totp_step", &int_opt)) {
     *step_size = int_opt;
   }
-  if(config_lookup_int(&cfg, "otp_window", &int_opt)) {
+  if (config_lookup_int(&cfg, "otp_window", &int_opt)) {
     *window_size = int_opt;
   }
 
@@ -649,7 +649,7 @@ int main(int argc, char *argv[]) {
       // configuration file.
       // if options provided without argument, use the CONFIG define
       config_filename = optarg ? optarg : CONFIG;
-      if ( parse_console_config_file(&debug, &force, &quiet, &r_limit, &r_time,
+      if (parse_console_config_file(&debug, &force, &quiet, &r_limit, &r_time,
                                 (int *) &reuse, &step_size, &window_size,
                                 (int *) &mode, &secret_fn, &issuer, &label,
                                 config_filename) != 0 ) {
