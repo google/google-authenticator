@@ -6,7 +6,7 @@ compiler:
 
 script: 
   - cd libpam && ./bootstrap.sh && ./configure && make && make check
-  - cd libpam && ./bootstrap.sh && ./configure --enable-config && make && make check
+  - make super-clean && ./bootstrap.sh && ./configure --enable-config && make && make check
 
 sudo: false
 
