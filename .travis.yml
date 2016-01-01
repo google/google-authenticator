@@ -4,7 +4,9 @@ compiler:
   - clang
   - gcc
 
-script: cd libpam && ./bootstrap.sh && ./configure && make && make check
+script: 
+  - cd libpam && ./bootstrap.sh && ./configure && make && make check
+  - cd libpam && ./bootstrap.sh && ./configure --enable-config && make && make check
 
 sudo: false
 
