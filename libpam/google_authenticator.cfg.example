@@ -102,19 +102,25 @@ quiet = false
 
 // Rate limiting retry limit
 // type:    int
-// default: 0
-// When set to 0 or a negative value, rate limiting will be disabled.
+// default: -1 (disabled)
+// When set negative value, rate limiting will be disabled.
+// When set to zero, and rate_timeout is not zero, rate limiting will be disabled.
+// When set to zero, and rate_timeout is also zero, the user will be prompted whether
+// to enable rate_limiting.
 // If you set this option, you must also set the the rate limiting time out timeout.
 // Authentication will be denied if the retry limit is exceeded in the timeout period.
-rate_limit = 0
+rate_limit = -1
 
 // Rate limiting retry timeout (seconds)
 // type:    int
-// default: 0
-// When set to 0 or a negative value, rate limiting will be disabled.
+// default: 30
+// When set to a negative value, rate limiting will be disabled.
+// When set to zero, and rate_limit is not zero, rate limiting will be disabled.
+// When set to zero, and rate_limit is also zero, the user will be prompted whether
+// to enable rate limiting.
 // If you set this option, you must alsoe set the rate limiting retry limit.
 // Authentication will be denied if the retry limit is exceeded in the timeout period.
-rate_timeout = 0
+rate_timeout = 30
 
 // TOTP step size (seconds)
 // type:    int
