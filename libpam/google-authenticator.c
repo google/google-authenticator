@@ -509,7 +509,9 @@ static int parse_console_config_file(int *debug, int *force, int *quiet,
     *debug = int_opt;
   }
   if(config_lookup_bool(&cfg, "allow_reuse", &int_opt)) {
-    *allow_reuse = int_opt;
+    // we don't have acces to the private enum in here,
+    // so we need to set the enum by value for now.
+    *allow_reuse = int_opt ? 2 : 1;
   }
   if(config_lookup_bool(&cfg, "quiet", &int_opt)) {
     *quiet = int_opt;
@@ -522,6 +524,9 @@ static int parse_console_config_file(int *debug, int *force, int *quiet,
   }
   if(config_lookup_int(&cfg, "totp_step", &int_opt)) {
     *step_size = int_opt;
+  }
+  if(config_lookup_int(&cfg, "otp_window", &int_opt)) {
+    *window_size = int_opt;
   }
 
   return 0;
