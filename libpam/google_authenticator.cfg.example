@@ -1,0 +1,134 @@
+# /etc/google_authenticator.cfg
+
+
+/************************************************************/
+/* Common options for PAM module and command line tool.     */
+/*                                                          */
+/* These options are used to control both the GA PAM module */
+/* and the command line secret generator.                   */
+/************************************************************/
+
+# Debugging mode
+# type:    boolean
+# default: false
+debug = false
+
+# Secret file name spec
+# type:    string
+# default: ~/.google_authenticator
+# options: Any filename conforming to the filename spec defined in the Google Authenticator docs.
+secret = "~/.google_authenticator"
+
+/********************************************************/
+/* Options for pam_google_authenticator.                */
+/*                                                      */
+/* These options are used to control the GA PAM module. */
+/********************************************************/
+# PAM pass mode
+# type:    string
+# default: none
+# options: try_first_pass, use_first_pass
+# pass_mode = "try_first_pass"
+
+# PAM forward pass
+# type:    boolean
+# default: false
+forward_pass = false
+
+# Disable time skew adjustment
+# type:    boolean
+# default: false
+noskewadj = false
+
+# Don't increment HOTP token after use
+# type:    boolean
+# default: false
+no_increment_hotp = false
+
+# Missing OTP token OK
+# type:    boolean
+# default: false
+nullok = false
+
+# Echo Verification Code to user
+# type:    boolean
+# default: false
+echo-verification-code = false
+
+
+/********************************************/
+/* Options for the GA command line tool.    */
+/*                                          */
+/* These options are used to control the GA */
+/* command line secret generator.           */
+/********************************************/
+
+# GA OTP mode
+# type:    string
+# default: time
+# options: time, hash
+otp_mode = "time"
+
+# OTP label
+# type:    string
+# default: empty
+# options: empty string, or static text
+# This option is disabled when empty string provided. The default lablel is username@hostname.
+otp_label = ""
+
+# Issuer
+# type:    string
+# default: empty
+# options: empty string, or static text
+# This option is disabled when empty string provided. The default issuer is the hostname of the machine.
+issuer = ""
+
+# QR printing mode
+# type:    string
+# dafault: ansi
+# options: none, ansi, utf8
+qr_mode = "ansi"
+
+# Allow token reuse
+# type:    boolean
+# default: false
+allow_reuse = false
+
+# Quiet mode
+# type: boolean
+# default: false
+# If this option is true,  information will be written to file without being printed to the screen.
+quiet = false
+
+# Rate limiting retry limit
+# type:    int
+# default: -1 (disabled)
+# When set negative value, rate limiting will be disabled.
+# When set to zero, and rate_timeout is not zero, rate limiting will be disabled.
+# When set to zero, and rate_timeout is also zero, the user will be prompted whether
+# to enable rate_limiting.
+# If you set this option, you must also set the the rate limiting time out timeout.
+# Authentication will be denied if the retry limit is exceeded in the timeout period.
+rate_limit = -1
+
+# Rate limiting retry timeout (seconds)
+# type:    int
+# default: 30
+# When set to a negative value, rate limiting will be disabled.
+# When set to zero, and rate_limit is not zero, rate limiting will be disabled.
+# When set to zero, and rate_limit is also zero, the user will be prompted whether
+# to enable rate limiting.
+# If you set this option, you must alsoe set the rate limiting retry limit.
+# Authentication will be denied if the retry limit is exceeded in the timeout period.
+rate_timeout = 30
+
+# TOTP step size (seconds)
+# type:    int
+# default: 30
+totp_step = 30
+
+# OTP window size
+# type:    int
+# default: 3
+# This determines how many codes to check (forward and back) for a match based on the current code.
+otp_window = 3

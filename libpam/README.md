@@ -81,11 +81,21 @@ must not include "~" or "${HOME}" in the filename.
 The `user=` option can also be useful if you want to authenticate users who do
 not have traditional UNIX accounts on your system.
 
+## Static configuration file
+
+When using non-standard options, setting a configuration file may reduce the complexity when working with secret files. This option is only available when compiled with the ```--enable-config``` option.
+
+If run with the configuration ( `config=` in PAM, `--config` at the command line) option, and no file name is provided, `/etc/google_authenticator.cfg` is used by default. The configuration file supports settings for all command-line and PAM options.
+
 ## Module options
 
 ### secret=/path/to/secret/file / user=some-user
 
 See "encrypted home directories", above.
+
+### config=/path/to/configuration/file
+
+See "static configuration file" above.
 
 ### debug
 
