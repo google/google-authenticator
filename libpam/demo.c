@@ -15,6 +15,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+#include "config.h"
 
 #include <assert.h>
 #include <fcntl.h>
@@ -40,14 +42,14 @@ static struct termios old_termios;
 static int jmpbuf_valid;
 static sigjmp_buf jmpbuf;
 
-static int conversation(int num_msg, const struct pam_message **msg,
+static int conversation(int num_msg, PAM_CONST struct pam_message **msg,
                         struct pam_response **resp, void *appdata_ptr) {
   if (num_msg == 1 &&
       (msg[0]->msg_style == PAM_PROMPT_ECHO_OFF ||
        msg[0]->msg_style == PAM_PROMPT_ECHO_ON)) {
     *resp = malloc(sizeof(struct pam_response));
     assert(*resp);
-    (*resp)->resp = calloc(1024, 0);
+    (*resp)->resp = calloc(1024, 1);
     struct termios termios = old_termios;
     if (msg[0]->msg_style == PAM_PROMPT_ECHO_OFF) {
       termios.c_lflag &= ~(ECHO|ECHONL);
@@ -80,11 +82,12 @@ static int conversation(int num_msg, const struct pam_message **msg,
 #else
 #define PAM_CONST const
 #endif
+
 int pam_get_item(const pam_handle_t *pamh, int item_type,
                  PAM_CONST void **item) {
   switch (item_type) {
     case PAM_SERVICE: {
-      static const char *service = "google_authenticator_demo";
+      static const char service[] = "google_authenticator_demo";
       memcpy(item, &service, sizeof(&service));
       return PAM_SUCCESS;
     }
@@ -104,7 +107,7 @@ int pam_get_item(const pam_handle_t *pamh, int item_type,
 }
 
 int pam_set_item(pam_handle_t *pamh, int item_type,
-                 PAM_CONST void *item) {
+                 const void *item) {
   switch (item_type) {
     case PAM_AUTHTOK:
       return PAM_SUCCESS;

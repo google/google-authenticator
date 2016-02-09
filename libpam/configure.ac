@@ -1,5 +1,6 @@
 AC_PREREQ(2.61)
 AC_INIT(google-authenticator, 1.01, habets@google.com)
+AC_USE_SYSTEM_EXTENSIONS
 LT_INIT
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR([google-authenticator.c])
@@ -27,6 +28,29 @@ AS_IF([test "x$ac_cv_header_security_pam_modules_h" = "xno" \
   AC_MSG_ERROR([Unable to find the PAM library or the PAM header files])
 ])
 
+AC_MSG_CHECKING([whether certain PAM functions require const arguments])
+AC_LANG_PUSH(C)
+# Force test to bail if const isn't needed
+AC_LANG_WERROR
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+	#include <security/pam_appl.h>
+	#include <security/pam_modules.h>
+]],[[
+	const void **item = 0;
+	int dummy = 0;
+	/*
+	 * since pam_handle_t is opaque on at least some platforms, give it
+	 * a non-NULL dummy value
+	 */
+	 const pam_handle_t *ph = (const pam_handle_t *)&dummy;
+	(void) pam_get_item(ph, 0, item);
+]])],[AC_DEFINE([PAM_CONST], [const], \
+		[Define if certain PAM functions require const arguments])
+      AC_MSG_RESULT([yes])],
+     [AC_DEFINE([PAM_CONST], [], \
+		[Prevent certain PAM functions from using const arguments])
+      AC_MSG_RESULT([no])])
+AC_LANG_POP(C)
 
 AC_SEARCH_LIBS([dlopen], [dl])
 
