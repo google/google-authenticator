@@ -54,7 +54,7 @@ AC_LANG_POP(C)
 
 AC_SEARCH_LIBS([dlopen], [dl])
 
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile contrib/rpm.spec])
 AC_OUTPUT
 
 echo "
