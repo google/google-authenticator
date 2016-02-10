@@ -12,6 +12,8 @@ libpam/config.log
 libpam/config.status
 libpam/config.sub
 libpam/configure
+libpam/contrib/rpm.spec
+!libpam/contrib/rpm.spec.in
 libpam/demo
 libpam/depcomp
 libpam/google-authenticator
