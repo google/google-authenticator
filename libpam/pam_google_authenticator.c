@@ -124,10 +124,10 @@ static int converse(pam_handle_t *pamh, int nargs,
 static const char *get_user_name(pam_handle_t *pamh, const Params *params) {
   // Obtain the user's name
   const char *username;
-  if (pam_get_user(pamh, &username, NULL) != PAM_SUCCESS ||
+  if (pam_get_item(pamh, PAM_USER, (void *)&username) != PAM_SUCCESS ||
       !username || !*username) {
     log_message(LOG_ERR, pamh,
-                "pam_get_user failed to get a user name when checking verification code");
+                "No user name available when checking verification code");
     return NULL;
   }
   if (params->debug) {
