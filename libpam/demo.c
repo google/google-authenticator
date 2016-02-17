@@ -118,7 +118,7 @@ int pam_set_item(pam_handle_t *pamh, int item_type,
 
 int pam_get_user(pam_handle_t *pamh, PAM_CONST char **user,
 		const char *prompt) {
-	return pam_get_item(pamh, PAM_USER, (void *)user);
+	return pam_get_item(pamh, PAM_USER, (void *)&user);
 }
 
 static void print_diagnostics(int signo) {
