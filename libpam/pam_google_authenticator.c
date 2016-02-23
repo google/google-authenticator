@@ -66,6 +66,8 @@ typedef struct Params {
   enum { PROMPT = 0, TRY_FIRST_PASS, USE_FIRST_PASS } pass_mode;
   int        forward_pass;
   int        debug;
+  int        allow_perm;
+  int        no_strict_owner;
 } Params;
 
 static char oom;
@@ -350,10 +352,22 @@ static int open_secret_file(pam_handle_t *pamh, const char *secret_filename,
     return -1;
   }
 
+  // print comparisson
+  if (params->debug) {
+    log_message(LOG_INFO, pamh, "Secret file permissions are %4o", orig_stat->st_mode & 03577);
+    if (params->allow_perm) {
+      log_message(LOG_INFO, pamh, "Extra file permissions allowed are %4o", params->allow_perm);
+    }
+  }
+
   // Check permissions on "~/.google_authenticator"
-  if ((orig_stat->st_mode & 03577) != 0400 ||
+  if (((orig_stat->st_mode & 03577) != 0400 &&
+        !((orig_stat->st_mode & 03577) == params->allow_perm &&
+            params->allow_perm != 0))
+        ||
       !S_ISREG(orig_stat->st_mode) ||
-      orig_stat->st_uid != (uid_t)uid) {
+      (orig_stat->st_uid != (uid_t)uid &&
+        !params->no_strict_owner)) {
     char buf[80];
     if (params->fixed_uid) {
       sprintf(buf, "user id %d", params->uid);
@@ -1383,6 +1397,16 @@ static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
       }
       params->fixed_uid = 1;
       params->uid = uid;
+    } else if (!memcmp(argv[i], "allow_perm=", 11)) {
+      char *remainder;
+      int perm = (int) strtol(argv[i] + 11, &remainder, 8);
+      if ( perm == 0 || strlen(remainder) != 0) {
+        puts("Invalid permission in allow_perm setting. The setting must be a positive integer.");
+        return -1;
+      }
+      params->allow_perm = perm;
+    } else if (!strcmp(argv[i], "no_strict_owner")) {
+      params->no_strict_owner = 1;
     } else if (!strcmp(argv[i], "debug")) {
       params->debug = 1;
     } else if (!strcmp(argv[i], "try_first_pass")) {
