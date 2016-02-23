@@ -1,5 +1,5 @@
 AC_PREREQ(2.61)
-AC_INIT(google-authenticator, 1.01, habets@google.com)
+AC_INIT(google-authenticator, 1.02, habets@google.com)
 AC_USE_SYSTEM_EXTENSIONS
 LT_INIT
 AC_CONFIG_MACRO_DIR([m4])
