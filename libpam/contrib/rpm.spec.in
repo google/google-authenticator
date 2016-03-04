@@ -1,11 +1,16 @@
 Name:           @PACKAGE_NAME@
 Version:        @VERSION@
+%if %{?_release:1}0
+Release:        %{_release}%{?dist}
+%else
 Release:        1%{?dist}
+%endif
 Summary:        One-time passcode support using open standards
 
 License:        ASL 2.0
 URL:            https://github.com/google/google-authenticator
 Source0:        %{name}-%{version}.tar.gz
+BuildRequires:  gcc
 BuildRequires:  pam-devel
 BuildRequires:  libtool
 
