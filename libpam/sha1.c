@@ -41,6 +41,7 @@
  *****************************************************************************
 */
 #define _BSD_SOURCE
+#define _DEFAULT_SOURCE
 #include <sys/types.h> // Defines BYTE_ORDER, iff _BSD_SOURCE is defined
 #include <string.h>
 
