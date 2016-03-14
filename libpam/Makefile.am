@@ -2,7 +2,7 @@ pamdir = $(libdir)/security
 
 bin_PROGRAMS=google-authenticator
 pam_LTLIBRARIES=pam_google_authenticator.la
-noinst_PROGRAMS=demo pam_google_authenticator_unittest
+check_PROGRAMS=demo pam_google_authenticator_unittest
 check_LTLIBRARIES=libpam_google_authenticator_testing.la
 
 dist_doc_DATA = FILEFORMAT README.md
