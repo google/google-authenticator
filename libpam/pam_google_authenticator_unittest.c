@@ -64,6 +64,11 @@ static int conversation(int num_msg, PAM_CONST struct pam_message **msg,
   return PAM_CONV_ERR;
 }
 
+int pam_get_user(pam_handle_t *pamh, PAM_CONST char **user,
+		 PAM_CONST char *prompt) {
+  return pam_get_item(pamh, PAM_USER, (void *)user);
+}
+
 int pam_get_item(const pam_handle_t *pamh, int item_type,
                  PAM_CONST void **item)
   __attribute__((visibility("default")));
