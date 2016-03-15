@@ -73,19 +73,22 @@ this location.
 In addition to "${USER}", the `secret=` option also recognizes both "~" and
 `${HOME}` as short-hands for the user's home directory.
 
-When using the `secret=` option, you might want to also set the `user=`
-option. The latter forces the PAM module to switch to a dedicated hard-coded
-user id prior to doing any file operations. When using the `user=` option, you
-must not include "~" or "${HOME}" in the filename.
+When using the `secret=` option, you might want to also set the `user=` option.
+When using the `user=` option, you must not include "~" or "${HOME}" in the filename.
 
 The `user=` option can also be useful if you want to authenticate users who do
 not have traditional UNIX accounts on your system.
 
 ## Module options
 
-### secret=/path/to/secret/file / user=some-user
+### secret=/path/to/secret/file
 
 See "encrypted home directories", above.
+
+### user=some-user
+
+Force the PAM module to switch to a hard-coded user id prior to doing
+any file operations
 
 ### debug
 
@@ -140,3 +143,11 @@ timebased, use the `google-authenticator` binary to generate a secret key in
 your home directory with the proper option.  In this mode, clock skew is
 irrelevant and the window size option now applies to how many codes beyond the
 current one that would be accepted, to reduce synchronization problems.
+
+## allow_perm
+
+By default, the PAM module requires the secrets file to be readable only by the owner of the file ( 0400 by default). In situations where the module is not used in a non-default configuration, an administrator may need more leanient file permissions, or a specific setting for their use case.
+
+## no_strict_owner
+
+By default, the PAM module requires the secrets file must be owned but PAM user. The PAM user will default to the user being authenticated, or a static user if the `user=` option is used.
