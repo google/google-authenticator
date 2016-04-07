@@ -26,9 +26,9 @@ pam_google_authenticator_la_CFLAGS  = $(AM_CFLAGS)
 pam_google_authenticator_la_LDFLAGS = $(AM_LDFLAGS) $(MODULES_LDFLAGS) -export-symbols-regex "pam_sm_(setcred|open_session|authenticate)"
 
 
-check_PROGRAMS    = demo pam_google_authenticator_unittest
+check_PROGRAMS    = demo tests/pam_google_authenticator_unittest
 check_LTLIBRARIES = libpam_google_authenticator_testing.la
-TESTS             = pam_google_authenticator_unittest
+TESTS             = tests/pam_google_authenticator_unittest
 
 libpam_google_authenticator_testing_la_SOURCES = \
 	src/pam_google_authenticator.c \
@@ -36,10 +36,10 @@ libpam_google_authenticator_testing_la_SOURCES = \
 libpam_google_authenticator_testing_la_CFLAGS  = $(AM_CFLAGS) -DTESTING=1
 libpam_google_authenticator_testing_la_LDFLAGS = $(AM_LDFLAGS) $(MODULES_LDFLAGS) -rpath $(abs_top_builddir)
 
-pam_google_authenticator_unittest_SOURCES = \
-	pam_google_authenticator_unittest.c \
+tests_pam_google_authenticator_unittest_SOURCES = \
+	tests/pam_google_authenticator_unittest.c \
 	$(CORE_SRC)
-pam_google_authenticator_unittest_LDFLAGS = $(AM_LDFLAGS) -export-dynamic
+tests_pam_google_authenticator_unittest_LDFLAGS = $(AM_LDFLAGS) -export-dynamic
 
 test: check
 

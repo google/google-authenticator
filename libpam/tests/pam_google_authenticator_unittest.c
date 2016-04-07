@@ -30,8 +30,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "src/base32.h"
-#include "src/hmac.h"
+#include "../src/base32.h"
+#include "../src/hmac.h"
 
 #if !defined(PAM_BAD_ITEM)
 // FreeBSD does not know about PAM_BAD_ITEM. And PAM_SYMBOL_ERR is an "enum",

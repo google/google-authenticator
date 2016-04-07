@@ -36,9 +36,13 @@ libpam/src/*.lo
 libpam/src/*.o
 libpam/src/.dirstamp
 
-libpam/pam_google_authenticator_unittest
-libpam/pam_google_authenticator_unittest.log
-libpam/pam_google_authenticator_unittest.trs
+libpam/tests/.deps/
+libpam/tests/.dirstamp
+libpam/tests/*.o
+libpam/tests/pam_google_authenticator_unittest
+libpam/tests/pam_google_authenticator_unittest.log
+libpam/tests/pam_google_authenticator_unittest.trs
+
 libpam/stamp-h1
 libpam/test-driver
 libpam/test-suite.log
