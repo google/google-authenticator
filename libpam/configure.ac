@@ -3,7 +3,7 @@ AC_INIT(google-authenticator, 1.01, habets@google.com)
 AC_USE_SYSTEM_EXTENSIONS
 LT_INIT
 AC_CONFIG_MACRO_DIR([m4])
-AC_CONFIG_SRCDIR([google-authenticator.c])
+AC_CONFIG_SRCDIR([src/google-authenticator.c])
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 AM_MAINTAINER_MODE([enable])
 AC_CONFIG_HEADER(config.h)

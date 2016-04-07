@@ -1,5 +1,8 @@
 libpam/.deps/
 libpam/.libs/
+libpam/src/.deps/
+libpam/src/.libs/
+
 libpam/Makefile
 libpam/Makefile.in
 libpam/aclocal.m4
@@ -12,8 +15,10 @@ libpam/config.log
 libpam/config.status
 libpam/config.sub
 libpam/configure
+
 libpam/contrib/rpm.spec
 !libpam/contrib/rpm.spec.in
+
 libpam/demo
 libpam/depcomp
 libpam/google-authenticator
@@ -22,9 +27,15 @@ libpam/libtool
 libpam/ltmain.sh
 libpam/m4/
 libpam/missing
+
 libpam/*.la
 libpam/*.lo
 libpam/*.o
+libpam/src/*.la
+libpam/src/*.lo
+libpam/src/*.o
+libpam/src/.dirstamp
+
 libpam/pam_google_authenticator_unittest
 libpam/pam_google_authenticator_unittest.log
 libpam/pam_google_authenticator_unittest.trs

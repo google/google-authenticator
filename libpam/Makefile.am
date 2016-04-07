@@ -9,17 +9,17 @@ dist_html_DATA = totp.html
 MODULES_LDFLAGS = -avoid-version -module -shared -export-dynamic
 
 CORE_SRC  =
-CORE_SRC += base32.h base32.c
-CORE_SRC += hmac.h   hmac.c
-CORE_SRC += sha1.h   sha1.c
+CORE_SRC += src/base32.h src/base32.c
+CORE_SRC += src/hmac.h   src/hmac.c
+CORE_SRC += src/sha1.h   src/sha1.c
 
 
 google_authenticator_SOURCES = \
-	google-authenticator.c \
+	src/google-authenticator.c \
 	$(CORE_SRC)
 
 pam_google_authenticator_la_SOURCES = \
-	pam_google_authenticator.c \
+	src/pam_google_authenticator.c \
 	$(CORE_SRC)
 pam_google_authenticator_la_LIBADD  = -lpam
 pam_google_authenticator_la_CFLAGS  = $(AM_CFLAGS)
@@ -31,7 +31,7 @@ check_LTLIBRARIES = libpam_google_authenticator_testing.la
 TESTS             = pam_google_authenticator_unittest
 
 libpam_google_authenticator_testing_la_SOURCES = \
-	pam_google_authenticator.c \
+	src/pam_google_authenticator.c \
 	$(CORE_SRC)
 libpam_google_authenticator_testing_la_CFLAGS  = $(AM_CFLAGS) -DTESTING=1
 libpam_google_authenticator_testing_la_LDFLAGS = $(AM_LDFLAGS) $(MODULES_LDFLAGS) -rpath $(abs_top_builddir)
@@ -45,7 +45,7 @@ test: check
 
 
 demo_SOURCES = \
-	pam_google_authenticator.c \
+	src/pam_google_authenticator.c \
 	$(CORE_SRC) \
 	demo.c
 demo_CFLAGS = $(AM_CFLAGS) -DDEMO=1
