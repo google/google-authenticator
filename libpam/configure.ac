@@ -1,13 +1,14 @@
 AC_PREREQ(2.61)
 AC_INIT(google-authenticator, 1.01, habets@google.com)
-AC_USE_SYSTEM_EXTENSIONS
-LT_INIT
-AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR([src/google-authenticator.c])
+AC_CONFIG_AUX_DIR([build])
+AC_CONFIG_MACRO_DIR([build])
+
+AC_USE_SYSTEM_EXTENSIONS
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 AM_MAINTAINER_MODE([enable])
-AC_CONFIG_HEADER(config.h)
 
+LT_INIT
 AC_PROG_CC
 AC_PROG_CC_STDC
 
@@ -45,15 +46,16 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 	 const pam_handle_t *ph = (const pam_handle_t *)&dummy;
 	(void) pam_get_item(ph, 0, item);
 ]])],[AC_DEFINE([PAM_CONST], [const], \
-		[Define if certain PAM functions require const arguments])
-      AC_MSG_RESULT([yes])],
-     [AC_DEFINE([PAM_CONST], [], \
-		[Prevent certain PAM functions from using const arguments])
-      AC_MSG_RESULT([no])])
+	[Define if certain PAM functions require const arguments])
+		AC_MSG_RESULT([yes])],
+	[AC_DEFINE([PAM_CONST], [], \
+	[Prevent certain PAM functions from using const arguments])
+	AC_MSG_RESULT([no])])
 AC_LANG_POP(C)
 
 AC_SEARCH_LIBS([dlopen], [dl])
 
+AC_CONFIG_HEADER(config.h)
 AC_CONFIG_FILES([Makefile contrib/rpm.spec])
 AC_OUTPUT
 

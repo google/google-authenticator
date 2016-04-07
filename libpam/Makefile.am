@@ -1,3 +1,6 @@
+AUTOMAKE_OPTIONS = foreign subdir-objects
+ACLOCAL_AMFLAGS = -I build
+
 pamdir = $(libdir)/security
 
 bin_PROGRAMS      = google-authenticator
