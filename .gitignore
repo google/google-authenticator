@@ -19,7 +19,6 @@ libpam/configure
 libpam/contrib/rpm.spec
 !libpam/contrib/rpm.spec.in
 
-libpam/demo
 libpam/depcomp
 libpam/google-authenticator
 libpam/install-sh
@@ -42,6 +41,11 @@ libpam/tests/*.o
 libpam/tests/pam_google_authenticator_unittest
 libpam/tests/pam_google_authenticator_unittest.log
 libpam/tests/pam_google_authenticator_unittest.trs
+
+libpam/examples/.deps/
+libpam/examples/.dirstamp
+libpam/examples/demo
+libpam/examples/*.o
 
 libpam/stamp-h1
 libpam/test-driver
