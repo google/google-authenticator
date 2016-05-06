@@ -775,13 +775,14 @@ int main(int argc, char *argv[]) {
       addOption(secret, sizeof(secret), buf);
     }
     if (!window_size) {
-      maybeAddOption("By default, tokens are good for 30 seconds and in order "
+      maybeAddOption("By default, tokens are good for 30 seconds. In order "
                      "to compensate for\npossible time-skew between the "
                      "client and the server, we allow an extra\ntoken before "
                      "and after the current time. If you experience problems "
-                     "with poor\ntime synchronization, you can increase the "
-                     "window from its default\nsize of 1:30min to about 4min. "
-                     "Do you want to do so",
+                     "with\npoor time synchronization, you can increase the "
+                     "window from its default\nsize of +-1min (window size "
+                     "of 3) to about +-4min (window size of\n17 acceptable "
+                     "tokens).\nDo you want to do so?",
                      secret, sizeof(secret), window);
     } else {
       char buf[80];
