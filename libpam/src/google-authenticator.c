@@ -785,10 +785,13 @@ int main(int argc, char *argv[]) {
                      secret, sizeof(secret), window);
     } else {
       char buf[80];
-      sprintf(buf, "\" WINDOW_SIZE %d\n", window_size);
+      // TODO: Should 3 really be the minimal window size for TOTP?
+      // If so, the code should not allow -w=1 here.
+      sprintf(buf, "\" WINDOW_SIZE %d\n", window_size > 0 ? window_size : 3);
       addOption(secret, sizeof(secret), buf);
     }
   } else {
+    // Counter based.
     if (!window_size) {
       maybeAddOption("By default, three tokens are valid at any one time.  "
                      "This accounts for\ngenerated-but-not-used tokens and "
@@ -799,8 +802,7 @@ int main(int argc, char *argv[]) {
                      secret, sizeof(secret), window);
     } else {
       char buf[80];
-      sprintf(buf, "\" WINDOW_SIZE %d\n",
-              window_size > 0 ? window_size : use_totp ? 3 : 1);
+      sprintf(buf, "\" WINDOW_SIZE %d\n", window_size > 0 ? window_size : 1);
       addOption(secret, sizeof(secret), buf);
     }
   }
