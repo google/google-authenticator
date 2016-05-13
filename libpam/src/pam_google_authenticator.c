@@ -224,7 +224,7 @@ static char *get_secret_filename(pam_handle_t *pamh, const Params *params,
     if (var) {
       size_t subst_len = strlen(subst);
       char *resized = realloc(secret_filename,
-                              strlen(secret_filename) + subst_len);
+                              strlen(secret_filename) + subst_len + 1);
       if (!resized) {
         goto err;
       }
