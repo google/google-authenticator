@@ -73,10 +73,13 @@ typedef struct Params {
 static char oom;
 
 #if defined(DEMO) || defined(TESTING)
-static char error_msg[128];
+static char* error_msg = NULL;
 
 const char *get_error_msg(void) __attribute__((visibility("default")));
 const char *get_error_msg(void) {
+  if (!error_msg) {
+    return "";
+  }
   return error_msg;
 }
 #endif
@@ -99,8 +102,21 @@ static void log_message(int priority, pam_handle_t *pamh,
   vsyslog(priority, format, args);
   closelog();
 #else
-  if (!*error_msg) {
-    vsnprintf(error_msg, sizeof(error_msg), format, args);
+  if (!error_msg) {
+    error_msg = strdup("");
+  }
+  {
+    char buf[1000];
+    vsnprintf(buf, sizeof buf, format, args);
+    const int newlen = strlen(error_msg) + 1 + strlen(buf) + 1;
+    char* n = malloc(newlen);
+    if (n) {
+      snprintf(n, newlen, "%s%s%s", error_msg, strlen(error_msg)?"\n":"",buf);
+      free(error_msg);
+      error_msg = n;
+    } else {
+      fprintf(stderr, "Failed to malloc %d bytes for log data.\n", newlen);
+    }
   }
 #endif
 
@@ -1452,10 +1468,6 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
   struct stat orig_stat = { 0 };
   uint8_t    *secret = NULL;
   int        secretLen = 0;
-
-#if defined(DEMO) || defined(TESTING)
-  *error_msg = '\000';
-#endif
 
   // Handle optional arguments that configure our PAM module
   Params params = { 0 };
