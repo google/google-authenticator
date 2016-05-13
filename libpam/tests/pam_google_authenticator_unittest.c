@@ -234,7 +234,9 @@ int main(int argc, char *argv[]) {
   for (int otp_mode = 0; otp_mode < 8; ++otp_mode) {
     // Create a secret file with a well-known test vector
     char fn[] = "/tmp/.google_authenticator_XXXXXX";
+    mode_t orig_umask = umask(S_IRWXG|S_IRWXO); // Only for the current user.
     int fd = mkstemp(fn);
+    (void)umask(orig_umask);
     assert(fd >= 0);
     static const uint8_t secret[] = "2SH3V3GDW7ZNMGYE";
     assert(write(fd, secret, sizeof(secret)-1) == sizeof(secret)-1);
