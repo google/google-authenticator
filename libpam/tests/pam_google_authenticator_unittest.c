@@ -124,10 +124,16 @@ int pam_set_item(pam_handle_t *pamh, int item_type,
   }
 }
 
+// Return the last line of the error message.
 static const char *get_error_msg(void) {
   const char *(*get_error_msg)(void) =
     (const char *(*)(void))dlsym(pam_module, "get_error_msg");
-  return get_error_msg ? get_error_msg() : "";
+  const char* msg = get_error_msg ? get_error_msg() : "";
+  const char* p = strrchr(msg, '\n');
+  if (p) {
+    msg = p+1;
+  }
+  return msg;
 }
 
 static void print_diagnostics(int signo) {
