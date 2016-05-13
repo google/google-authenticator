@@ -742,7 +742,7 @@ int main(int argc, char *argv[]) {
   if (!force) {
     printf("\nDo you want me to update your \"%s\" file (y/n) ", secret_fn);
     fflush(stdout);
-    char ch;
+    int ch;
     do {
       ch = getchar();
     } while (ch == ' ' || ch == '\r' || ch == '\n');
