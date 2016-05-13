@@ -1411,7 +1411,6 @@ static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
   params->echocode = PAM_PROMPT_ECHO_OFF;
   for (int i = 0; i < argc; ++i) {
     if (!memcmp(argv[i], "secret=", 7)) {
-      free((void *)params->secret_filename_spec);
       params->secret_filename_spec = argv[i] + 7;
     } else if (!memcmp(argv[i], "user=", 5)) {
       uid_t uid;
