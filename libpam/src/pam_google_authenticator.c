@@ -66,6 +66,7 @@ typedef struct Params {
   enum { PROMPT = 0, TRY_FIRST_PASS, USE_FIRST_PASS } pass_mode;
   int        forward_pass;
   int        debug;
+  int        no_strict_owner;
 } Params;
 
 static char oom;
@@ -351,17 +352,26 @@ static int open_secret_file(pam_handle_t *pamh, const char *secret_filename,
     return -1;
   }
 
-  // Check permissions on "~/.google_authenticator"
-  if ((orig_stat->st_mode & 03577) != 0400 ||
-      !S_ISREG(orig_stat->st_mode) ||
-      orig_stat->st_uid != (uid_t)uid) {
+  // Check permissions on "~/.google_authenticator".
+  if (!S_ISREG(orig_stat->st_mode)) {
+    log_message(LOG_ERR, pamh, "Secret file \"%s\" is not a regular file",
+                secret_filename);
+    goto error;
+  }
+  if ((orig_stat->st_mode & 03577) != 0400) {
+    log_message(LOG_ERR, pamh, "Secret file \"%s\" is more permissive than %4o",
+                secret_filename, 0400);
+    goto error;
+  }
+
+  if (!params->no_strict_owner && (orig_stat->st_uid != (uid_t)uid)) {
     char buf[80];
     if (params->fixed_uid) {
       sprintf(buf, "user id %d", params->uid);
       username = buf;
     }
     log_message(LOG_ERR, pamh,
-                "Secret file \"%s\" must only be accessible by %s",
+                "Secret file \"%s\" must be owned by %s",
                 secret_filename, username);
     goto error;
   }
@@ -1384,6 +1394,8 @@ static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
       }
       params->fixed_uid = 1;
       params->uid = uid;
+    } else if (!strcmp(argv[i], "no_strict_owner")) {
+      params->no_strict_owner = 1;
     } else if (!strcmp(argv[i], "debug")) {
       params->debug = 1;
     } else if (!strcmp(argv[i], "try_first_pass")) {

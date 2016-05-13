@@ -83,9 +83,26 @@ not have traditional UNIX accounts on your system.
 
 ## Module options
 
-### secret=/path/to/secret/file / user=some-user
+### secret=/path/to/secret/file
 
 See "encrypted home directories", above.
+
+### user=some-user
+
+Force the PAM module to switch to a hard-coded user id prior to doing any file
+operations. Commonly used with `secret=`.
+
+### no_strict_owner
+
+DANGEROUS OPTION!
+
+By default the PAM module requires that the secrets file must be owned the user
+logging in (or if `user=` is specified, owned by that user). This option
+disables that check.
+
+This option can be used to allow daemons not running as root to still handle
+configuration files not owned by that user, for example owned by the users
+themselves.
 
 ### debug
 
