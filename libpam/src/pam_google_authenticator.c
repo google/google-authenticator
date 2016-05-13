@@ -67,6 +67,7 @@ typedef struct Params {
   int        forward_pass;
   int        debug;
   int        no_strict_owner;
+  int        allowed_perm;
 } Params;
 
 static char oom;
@@ -352,15 +353,24 @@ static int open_secret_file(pam_handle_t *pamh, const char *secret_filename,
     return -1;
   }
 
+  if (params->debug) {
+    log_message(LOG_INFO, pamh,
+                "Secret file permissions are %04o."
+                " Allowed permissions are %04o",
+                orig_stat->st_mode & 03777, params->allowed_perm);
+  }
+
   // Check permissions on "~/.google_authenticator".
   if (!S_ISREG(orig_stat->st_mode)) {
     log_message(LOG_ERR, pamh, "Secret file \"%s\" is not a regular file",
                 secret_filename);
     goto error;
   }
-  if ((orig_stat->st_mode & 03577) != 0400) {
-    log_message(LOG_ERR, pamh, "Secret file \"%s\" is more permissive than %4o",
-                secret_filename, 0400);
+  if (orig_stat->st_mode & 03777 & ~params->allowed_perm) {
+    log_message(LOG_ERR, pamh,
+                "Secret file \"%s\" permissions (%04o)"
+                " are more permissive than %04o", secret_filename,
+                orig_stat->st_mode & 03777, params->allowed_perm);
     goto error;
   }
 
@@ -1394,6 +1404,17 @@ static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
       }
       params->fixed_uid = 1;
       params->uid = uid;
+    } else if (!memcmp(argv[i], "allowed_perm=", 13)) {
+      char *remainder = NULL;
+      int perm = (int)strtol(argv[i] + 13, &remainder, 8);
+      if (perm == 0 || strlen(remainder) != 0) {
+        log_message(LOG_ERR, pamh,
+                    "Invalid permissions in setting \"%s\"."
+                    " allowed_perm setting must be a positive octal integer.",
+                    argv[i]);
+        return -1;
+      }
+      params->allowed_perm = perm;
     } else if (!strcmp(argv[i], "no_strict_owner")) {
       params->no_strict_owner = 1;
     } else if (!strcmp(argv[i], "debug")) {
@@ -1438,6 +1459,7 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
 
   // Handle optional arguments that configure our PAM module
   Params params = { 0 };
+  params.allowed_perm = 0600;
   if (parse_args(pamh, argc, argv, &params) < 0) {
     return rc;
   }
