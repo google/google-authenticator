@@ -17,7 +17,7 @@
 //
 // Encode and decode from base32 encoding using the following alphabet:
 //   ABCDEFGHIJKLMNOPQRSTUVWXYZ234567
-// This alphabet is documented in RFC 4668/3548
+// This alphabet is documented in RFC 4648/3548
 //
 // We allow white-space and hyphens, but all other characters are considered
 // invalid.
