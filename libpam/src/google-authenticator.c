@@ -145,7 +145,10 @@ static const char *urlEncode(const char *s) {
       break;
     }
   } while (*s++);
-  ret = realloc(ret, strlen(ret) + 1);
+  char* newret = realloc(ret, strlen(ret) + 1);
+  if (newret) {
+    ret = newret;
+  }
   return ret;
 }
 
