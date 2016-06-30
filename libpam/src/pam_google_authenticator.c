@@ -393,7 +393,7 @@ static int open_secret_file(pam_handle_t *pamh, const char *secret_filename,
   if (!params->no_strict_owner && (orig_stat->st_uid != (uid_t)uid)) {
     char buf[80];
     if (params->fixed_uid) {
-      sprintf(buf, "user id %d", params->uid);
+      snprintf(buf, sizeof buf, "user id %d", params->uid);
       username = buf;
     }
     log_message(LOG_ERR, pamh,
@@ -827,17 +827,21 @@ static int rate_limit(pam_handle_t *pamh, const char *secret_filename,
   }
 
   // Construct new list of timestamps within the current time interval.
-  char *list = malloc(25 * (2 + (stop - start + 1)) + 4);
-  if (!list) {
+  char* list;
+  {
+    const size_t list_size = 25 * (2 + (stop - start + 1)) + 4;
+    list = malloc(list_size);
+    if (!list) {
+      free(timestamps);
+      goto oom;
+    }
+    snprintf(list, list_size, "%d %d", attempts, interval);
+    char *prnt = strchr(list, '\000');
+    for (int i = start; i <= stop; ++i) {
+      prnt += snprintf(prnt, list_size-(prnt-list), " %u", timestamps[i]);
+    }
     free(timestamps);
-    goto oom;
   }
-  sprintf(list, "%d %d", attempts, interval);
-  char *prnt = strchr(list, '\000');
-  for (int i = start; i <= stop; ++i) {
-    prnt += sprintf(prnt, " %u", timestamps[i]);
-  }
-  free(timestamps);
 
   // Try to update RATE_LIMIT line.
   if (set_cfg_value(pamh, "RATE_LIMIT", list, buf) < 0) {
@@ -1070,21 +1074,25 @@ static int invalidate_timebased_code(int tm, pam_handle_t *pamh,
   }
 
   // Add the current timestamp to the list of disallowed timestamps.
-  char *resized = realloc(disallow, strlen(disallow) + 40);
-  if (!resized) {
+  {
+    const size_t resized_size = strlen(disallow) + 40;
+    char *resized = realloc(disallow, resized_size);
+    if (!resized) {
+      free((void *)disallow);
+      log_message(LOG_ERR, pamh,
+                  "Failed to allocate memory when updating \"%s\"",
+                  secret_filename);
+      return -1;
+    }
+    disallow = resized;
+    char* pos = strrchr(disallow, '\000');
+    snprintf(pos, resized_size-(pos-disallow), " %d" + !*disallow, tm);
+    if (set_cfg_value(pamh, "DISALLOW_REUSE", disallow, buf) < 0) {
+      free((void *)disallow);
+      return -1;
+    }
     free((void *)disallow);
-    log_message(LOG_ERR, pamh,
-                "Failed to allocate memory when updating \"%s\"",
-                secret_filename);
-    return -1;
   }
-  disallow = resized;
-  sprintf(strrchr(disallow, '\000'), " %d" + !*disallow, tm);
-  if (set_cfg_value(pamh, "DISALLOW_REUSE", disallow, buf) < 0) {
-    free((void *)disallow);
-    return -1;
-  }
-  free((void *)disallow);
 
   // Mark the state file as changed
   *updated = 1;
@@ -1224,7 +1232,7 @@ static int check_time_skew(pam_handle_t *pamh, const char *secret_filename,
     // succession. Establish a new valid time skew for all future login
     // attempts.
     char time_skew[40];
-    sprintf(time_skew, "%d", avg_skew);
+    snprintf(time_skew, sizeof time_skew, "%d", avg_skew);
     if (set_cfg_value(pamh, "TIME_SKEW", time_skew, buf) < 0) {
       return -1;
     }
@@ -1234,15 +1242,19 @@ static int check_time_skew(pam_handle_t *pamh, const char *secret_filename,
 
   // Set the new RESETTING_TIME_SKEW line, while the user is still trying
   // to reset the time skew.
-  char reset[80 * (sizeof(tms)/sizeof(int))];
-  *reset = '\000';
-  if (rc) {
-    for (int i = 0; i < num_entries; ++i) {
-      sprintf(strrchr(reset, '\000'), " %d%+d" + !*reset, tms[i], skews[i]);
+  {
+    const size_t reset_size = 80 * (sizeof(tms)/sizeof(int));
+    char reset[reset_size];
+    *reset = '\000';
+    if (rc) {
+      for (int i = 0; i < num_entries; ++i) {
+        char* pos = strrchr(reset, '\000');
+        snprintf(pos, reset_size-(pos-reset), " %d%+d" + !*reset, tms[i], skews[i]);
+      }
     }
-  }
-  if (set_cfg_value(pamh, "RESETTING_TIME_SKEW", reset, buf) < 0) {
-    return -1;
+    if (set_cfg_value(pamh, "RESETTING_TIME_SKEW", reset, buf) < 0) {
+      return -1;
+    }
   }
 
   // Mark the state file as changed
@@ -1359,7 +1371,7 @@ static int check_counterbased_code(pam_handle_t *pamh,
     unsigned int hash = compute_code(secret, secretLen, hotp_counter + i);
     if (hash == (unsigned int)code) {
       char counter_str[40];
-      sprintf(counter_str, "%ld", hotp_counter + i + 1);
+      snprintf(counter_str, sizeof counter_str, "%ld", hotp_counter + i + 1);
       if (set_cfg_value(pamh, "HOTP_COUNTER", counter_str, buf) < 0) {
         return -1;
       }
@@ -1641,7 +1653,7 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
     // advanced by at least one, unless this has been disabled.
     if (!params.no_increment_hotp && must_advance_counter) {
       char counter_str[40];
-      sprintf(counter_str, "%ld", hotp_counter + 1);
+      snprintf(counter_str, sizeof counter_str, "%ld", hotp_counter + 1);
       if (set_cfg_value(pamh, "HOTP_COUNTER", counter_str, &buf) < 0) {
         rc = PAM_AUTH_ERR;
       }

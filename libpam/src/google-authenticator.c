@@ -119,7 +119,7 @@ static const char *getUserName(uid_t uid) {
 }
 
 static const char *urlEncode(const char *s) {
-  size_t size = 3 * strlen(s) + 1;
+  const size_t size = 3 * strlen(s) + 1;
   if (size > 10000) {
     // Anything "too big" is too suspect to let through.
     fprintf(stderr, "Error: Generated URL would be unreasonably big.");
