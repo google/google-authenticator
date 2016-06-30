@@ -740,13 +740,10 @@ int main(int argc, char *argv[]) {
     strcat(strcpy(secret_fn, home), SECRET);
   }
   if (!force) {
-    printf("\nDo you want me to update your \"%s\" file (y/n) ", secret_fn);
-    fflush(stdout);
-    int ch;
-    do {
-      ch = getchar();
-    } while (ch == ' ' || ch == '\r' || ch == '\n');
-    if (ch != 'y' && ch != 'Y') {
+    char buf[1024];
+    snprintf(buf, sizeof buf, "Do you want me to update your \"%s\" file?",
+             secret_fn);
+    if (!maybe(buf)) {
       exit(0);
     }
   }
