@@ -119,7 +119,13 @@ static const char *getUserName(uid_t uid) {
 }
 
 static const char *urlEncode(const char *s) {
-  char *ret = malloc(3*strlen(s) + 1);
+  size_t size = 3 * strlen(s) + 1;
+  if (size > 10000) {
+    // Anything "too big" is too suspect to let through.
+    fprintf(stderr, "Error: Generated URL would be unreasonably big.");
+    exit(1);
+  }
+  char *ret = malloc(size);
   char *d = ret;
   do {
     switch (*s) {
@@ -128,7 +134,7 @@ static const char *urlEncode(const char *s) {
     case '?':
     case '=':
     encode:
-      sprintf(d, "%%%02X", (unsigned char)*s);
+      snprintf(d, size-(d-ret), "%%%02X", (unsigned char)*s);
       d += 3;
       break;
     default:
@@ -768,7 +774,7 @@ int main(int argc, char *argv[]) {
     }
     if (step_size) {
       char buf[80];
-      sprintf(buf, "\" STEP_SIZE %d\n", step_size);
+      snprintf(buf, sizeof buf, "\" STEP_SIZE %d\n", step_size);
       addOption(secret, sizeof(secret), buf);
     }
     if (!window_size) {
@@ -785,7 +791,7 @@ int main(int argc, char *argv[]) {
       char buf[80];
       // TODO: Should 3 really be the minimal window size for TOTP?
       // If so, the code should not allow -w=1 here.
-      sprintf(buf, "\" WINDOW_SIZE %d\n", window_size > 0 ? window_size : 3);
+      snprintf(buf, sizeof buf, "\" WINDOW_SIZE %d\n", window_size > 0 ? window_size : 3);
       addOption(secret, sizeof(secret), buf);
     }
   } else {
@@ -800,7 +806,7 @@ int main(int argc, char *argv[]) {
                      secret, sizeof(secret), window);
     } else {
       char buf[80];
-      sprintf(buf, "\" WINDOW_SIZE %d\n", window_size > 0 ? window_size : 1);
+      snprintf(buf, sizeof buf, "\" WINDOW_SIZE %d\n", window_size > 0 ? window_size : 1);
       addOption(secret, sizeof(secret), buf);
     }
   }
@@ -813,7 +819,7 @@ int main(int argc, char *argv[]) {
                    secret, sizeof(secret), ratelimit);
   } else if (r_limit > 0 && r_time > 0) {
     char buf[80];
-    sprintf(buf, "\" RATE_LIMIT %d %d\n", r_limit, r_time);
+    snprintf(buf, sizeof buf, "\" RATE_LIMIT %d %d\n", r_limit, r_time);
     addOption(secret, sizeof(secret), buf);
   }
 
