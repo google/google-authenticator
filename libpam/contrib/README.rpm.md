@@ -39,7 +39,7 @@ google-authenticator-1.01-8.el6.x86_64.rpm
 ```shell
 git clone https://github.com/google/google-authenticator.git
 cd google-authenticator/libpam
-./autogen.sh
+./bootstrap.sh
 ./configure
 make dist
 cp google-autheticator-#.##.tar.gz ~/rpmbuild/SOURCES/
