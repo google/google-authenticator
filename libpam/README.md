@@ -87,6 +87,13 @@ not have traditional UNIX accounts on your system.
 
 See "encrypted home directories", above.
 
+### authtok_prompt=prompt
+
+Overrides default token prompt. If you want to include spaces in the prompt,
+wrap the whole argument in square brackets:
+
+`  auth required pam_google_authenticator.so [authtok_prompt=Your secret token: ]`
+
 ### user=some-user
 
 Force the PAM module to switch to a hard-coded user id prior to doing any file

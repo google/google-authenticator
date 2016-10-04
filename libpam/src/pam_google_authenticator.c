@@ -52,11 +52,14 @@
 #include "hmac.h"
 #include "sha1.h"
 
-#define MODULE_NAME "pam_google_authenticator"
-#define SECRET      "~/.google_authenticator"
+#define MODULE_NAME   "pam_google_authenticator"
+#define SECRET        "~/.google_authenticator"
+#define CODE_PROMPT   "Verification code: "
+#define PWCODE_PROMPT "Password & verification code: "
 
 typedef struct Params {
   const char *secret_filename_spec;
+  const char *authtok_prompt;
   enum { NULLERR=0, NULLOK, SECRETNOTFOUND } nullok;
   int        noskewadj;
   int        echocode;
@@ -1424,6 +1427,8 @@ static int parse_args(pam_handle_t *pamh, int argc, const char **argv,
   for (int i = 0; i < argc; ++i) {
     if (!memcmp(argv[i], "secret=", 7)) {
       params->secret_filename_spec = argv[i] + 7;
+    } else if (!memcmp(argv[i], "authtok_prompt=", 15)) {
+      params->authtok_prompt = argv[i] + 15;
     } else if (!memcmp(argv[i], "user=", 5)) {
       uid_t uid;
       if (parse_user(pamh, argv[i] + 5, &uid) < 0) {
@@ -1487,6 +1492,10 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
     return rc;
   }
 
+  const char *prompt = params.authtok_prompt
+    ? params.authtok_prompt
+    : (params.forward_pass ? PWCODE_PROMPT : CODE_PROMPT);
+
   // Read and process status file, then ask the user for the verification code.
   int early_updated = 0, updated = 0;
   if ((username = get_user_name(pamh, &params)) &&
@@ -1541,10 +1550,7 @@ static int google_authenticator(pam_handle_t *pamh, int flags,
             // code or a two digit password immediately followed by a six
             // digit verification code. We have to loop and try both
             // options.
-            saved_pw = request_pass(pamh, params.echocode,
-                                    params.forward_pass ?
-                                    "Password & verification code: " :
-                                    "Verification code: ");
+            saved_pw = request_pass(pamh, params.echocode, prompt);
           }
           if (saved_pw) {
             pw = strdup(saved_pw);
