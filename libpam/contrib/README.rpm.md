@@ -42,6 +42,6 @@ cd google-authenticator/libpam
 ./bootstrap.sh
 ./configure
 make dist
-cp google-autheticator-#.##.tar.gz ~/rpmbuild/SOURCES/
+cp google-authenticator-#.##.tar.gz ~/rpmbuild/SOURCES/
 rpmbuild -ba contrib/rpm.spec
 ```
