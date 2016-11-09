@@ -1,7 +1,5 @@
 # Google Authenticator OpenSource
 
-[![Build Status](https://travis-ci.org/google/google-authenticator.svg?branch=master)](https://travis-ci.org/google/google-authenticator)
-
 The Google Authenticator project includes implementations of one-time passcode
 generators for several mobile platforms. One-time passcodes are generated using
 open standards developed by the
