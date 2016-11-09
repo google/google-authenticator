@@ -1,5 +1,5 @@
 AC_PREREQ(2.61)
-AC_INIT(google-authenticator, 1.01, habets@google.com)
+AC_INIT(google-authenticator, 1.02, habets@google.com)
 AC_CONFIG_SRCDIR([src/google-authenticator.c])
 AC_CONFIG_AUX_DIR([build])
 AC_CONFIG_MACRO_DIR([build])
