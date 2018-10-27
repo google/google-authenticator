@@ -14,7 +14,7 @@ The Android app is in
 
 There is by design NO account backups in any of the apps.
 
-These apps are not on the app stores, and their code has diverged from what's in
+These apps are not on the app stores, and their code has been diverged from what's in
 the app stores, so patches here won't necessarily show up in those versions.
 
 These implementations support the HMAC-Based One-time Password (HOTP) algorithm
