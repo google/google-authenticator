@@ -6,13 +6,15 @@ open standards developed by the
 [Initiative for Open Authentication (OATH)](http://www.openauthentication.org/)
 (which is unrelated to [OAuth](http://oauth.net/)).
 
-The pluggable authentication module (PAM) is in
-[a separate project](https://github.com/google/google-authenticator-libpam).
+This GitHub project is specifically for the Google Authenticator apps which
+target the Blackberry and iOS mobile platforms.
 
-The Android app is in
-[another one](https://github.com/google/google-authenticator-android).
+Other related Google Authenticator opensource projects can be found as noted
+below:
+- [Android app](https://github.com/google/google-authenticator-android).
+- [Pluggable Authentication Module](https://github.com/google/google-authenticator-libpam), aka PAM.
 
-There is by design NO account backups in any of the apps.
+There are **no account backups** in any of the apps by design.
 
 These apps are not on the app stores, and their code has diverged from what's in
 the app stores, so patches here won't necessarily show up in those versions.
