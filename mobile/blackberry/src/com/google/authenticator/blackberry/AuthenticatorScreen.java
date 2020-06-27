@@ -154,7 +154,7 @@ public class AuthenticatorScreen extends MainScreen implements UpdateCallback,
     }
     
     if (!secret.equals(getSecret(user)) ||
-        counter != AccountDb.getCounter(user) ||
+        !counter.equals(AccountDb.getCounter(user)) ||
         type != AccountDb.getType(user)) {
       saveSecret(user, secret, null, type);
       mStatusText.setText(sResources.getString(SECRET_SAVED));
