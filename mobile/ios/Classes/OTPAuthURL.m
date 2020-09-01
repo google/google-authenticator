@@ -186,6 +186,8 @@ NSString *const OTPAuthURLSecondsBeforeNewOTPKey
     [GTMStringEncoding stringEncodingWithString:kBase32Charset];
   [coder addDecodeSynonyms:kBase32Synonyms];
   [coder ignoreCharacters:kBase32Sep];
+  [coder setPaddingChar:'=']
+  [coder setDoPad:YES];
   return [coder decode:string];
 }
 
@@ -194,6 +196,8 @@ NSString *const OTPAuthURLSecondsBeforeNewOTPKey
     [GTMStringEncoding stringEncodingWithString:kBase32Charset];
   [coder addDecodeSynonyms:kBase32Synonyms];
   [coder ignoreCharacters:kBase32Sep];
+  [coder setPaddingChar:'=']
+  [coder setDoPad:YES];
   return [coder encode:data];
 }
 
